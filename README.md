@@ -71,19 +71,19 @@ It tracks managerial feedback like Git commits, synthesizes strict **Applicabili
 
 ```mermaid
 journey
-    title Evolution from Corporate Doormat to Mind Reader (打工人的蛔虫进化曲线)
-    section Stage 1: De-noising (挨骂录入)
+    title Evolution from Corporate Doormat to Mind Reader
+    section Stage 1 Feedback Ingestion
       Manager sends furious voice memo: 1: Creator
-      De-noise emotions and isolate true intent: 4: BossAlign
-    section Stage 2: Boundary Guard (边界守卫)
+      Denoise emotions and isolate true intent: 4: BossAlign
+    section Stage 2 Boundary Guard
       Standard AI over-corrects everything: 1: Standard AI
-      Establish negative boundaries to avoid regression: 5: BossAlign
-    section Stage 3: Dialect Compilation (黑话破译)
+      Establish negative boundaries against regression: 5: BossAlign
+    section Stage 3 Dialect Compilation
       Decode ambiguous terms like sleek and premium: 5: BossAlign
       Assemble copy with grounded operational evidence: 5: BossAlign
-    section Stage 4: One-Shot Approval (一稿通神)
+    section Stage 4 One-Shot Approval
       Executive previews the draft with a smile: 5: Executive
-      Spot on! Are you living in my head: 5: Executive, Creator
+      Spot on! That is exactly what I wanted: 5: Executive, Creator
 ```
 
 ---
