@@ -17,6 +17,26 @@
 
 ---
 
+## 🔄 系统运转全景 (End-to-End Workflow)
+
+```mermaid
+flowchart LR
+    A["💥 领导暴躁语音<br>(Furious Voice Memo)"] --> B("🧪 情绪脱水提取<br>(Emotion De-noiser)")
+    B --> C{"🛡️ 反例防火墙<br>(Negative Boundary)"}
+    C -->|"阻断旧错复发"| D["🤖 业务细节生成<br>(Grounded Execution)"]
+    D --> E["🧐 影子老板闭门沙箱<br>(Shadow Boss Sandbox)"]
+    E -->|"100% 预审通过"| F["🎉 一稿过审·直呼牛逼!<br>(One-Shot Approval)"]
+
+    style A fill:#ffebee,stroke:#e53935,stroke-width:2px,color:#b71c1c
+    style B fill:#e1f5fe,stroke:#039be5,stroke-width:2px,color:#01579b
+    style C fill:#fff8e1,stroke:#fbc02d,stroke-width:2px,color:#f57f17
+    style D fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#4a148c
+    style E fill:#e0f2f1,stroke:#00897b,stroke-width:2px,color:#004d40
+    style F fill:#e8f5e9,stroke:#43a047,stroke-width:3px,color:#1b5e20
+```
+
+---
+
 ## 💥 每一个打工人和 AI 创作者的窒息瞬间
 
 你一定经历过这样的地狱循环：
