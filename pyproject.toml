@@ -4,18 +4,41 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bossalign"
-version = "0.1.0"
-description = "BossAlign (蛔虫引擎): The 'Boss-in-the-Loop' Alignment Framework for Multi-Stakeholder Approvals."
+version = "0.2.0"
+description = "The feedback alignment layer for AI agents: persistent, scoped rules with negative boundaries."
 readme = "README.md"
-authors = [{ name = "BossAlign Team" }]
+authors = [{ name = "BossAlign Contributors" }]
 license = { text = "MIT" }
 requires-python = ">=3.9"
-dependencies = [
-    "pydantic>=2.0.0",
-    "click>=8.0.0",
-    "rich>=13.0.0"
+dependencies = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.4"]
 
 [project.scripts]
 bossalign = "bossalign.cli:main"
 roundworm = "bossalign.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["bossalign*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

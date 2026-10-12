@@ -1,205 +1,197 @@
-# BossAlign (Codename: Roundworm / 蛔虫引擎) 🐛⚡
+# BossAlign
 
-> **Turn ruthless managerial feedback into one-shot approvals.**  
-> *Make your stakeholders exclaim: "Holy crap, that's EXACTLY what I wanted! How did you read my mind?!"*  
-> *(把领导的每一次夺命吐槽，变成下一次“一稿过审”的强化学习。让领导惊呼：“卧槽，你就是我肚子里的蛔虫！”)*
+> **The Feedback Alignment Layer for AI Agents.**
+> Turn human feedback into persistent, scoped rules. Stop agents from repeating the same mistakes.
 
-<p align="center">
-  <b>English</b> | 
-  <a href="README_CN.md"><b>📖 简体中文文档</b></a> | 
-  <a href="docs/01_boundary_guard_en.md">Architecture Whitepapers</a> | 
-  <a href="examples/skypulse_drone/output_script_en.md">Benchmark Showcase</a>
-</p>
+[![CI](https://github.com/davidmercer0620-ai/bossalign/actions/workflows/ci.yml/badge.svg?branch=dev%2Fv0.2)](https://github.com/davidmercer0620-ai/bossalign/actions/workflows/ci.yml)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.9+-3776AB.svg?logo=python&logoColor=white" alt="Python 3.9+"></a>
-  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-Welcome-brightgreen.svg" alt="PRs Welcome"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Architecture-Boss--in--the--Loop-orange.svg" alt="Boss-in-the-Loop"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Status-Battle--Tested-success.svg" alt="Battle-Tested"></a>
-</p>
+BossAlign (蛔虫引擎) is a small, framework-independent layer between agent memory and agent behavior. It stores corrections as **proposed rules with evidence, scope, and exclusions**, then retrieves and checks only the rules that fit a new task.
 
----
+Unlike a chat-history memory, BossAlign is designed to remember what should be repeated, where it applies, and where it must not be generalized. A system check is never presented as user approval.
 
-## 🔄 The End-to-End Alignment Workflow (系统运转全景)
+| Ordinary conversation memory | BossAlign |
+| --- | --- |
+| Saves statements or summaries | Converts feedback into a rule proposal with its source |
+| Often retrieves by broad similarity | Matches declared project, task, audience, objective, and task ID fields |
+| Can spread a local correction to unrelated tasks | Stores explicit negative boundaries and returns uncertainty when context is missing |
+| Usually has no rule lifecycle | Keeps draft, confirmed, and inactive states plus version history |
+| May say an output “passes” | Reports deterministic evidence and coverage; never claims human approval |
 
-```mermaid
-flowchart LR
-    A["💥 Furious Voice Memo<br>(领导暴躁语音)"] --> B("🧪 Emotion De-noiser<br>(情绪脱水提取)")
-    B --> C{"🛡️ Negative Boundary<br>(反例防火墙)"}
-    C -->|"Clash Prevented"| D["🤖 Grounded Execution<br>(业务细节生成)"]
-    D --> E["🧐 Shadow Boss Sandbox<br>(影子老板闭门沙箱)"]
-    E -->|"100% Pre-Flight Passed"| F["🎉 One-Shot Approval!<br>(一稿过审·直呼牛逼)"]
+## Quickstart
 
-    style A fill:#ffebee,stroke:#e53935,stroke-width:2px,color:#b71c1c
-    style B fill:#e1f5fe,stroke:#039be5,stroke-width:2px,color:#01579b
-    style C fill:#fff8e1,stroke:#fbc02d,stroke-width:2px,color:#f57f17
-    style D fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#4a148c
-    style E fill:#e0f2f1,stroke:#00897b,stroke-width:2px,color:#004d40
-    style F fill:#e8f5e9,stroke:#43a047,stroke-width:3px,color:#1b5e20
-```
+Python 3.9+; the core package has no runtime dependencies. From a clone:
 
----
-
-## 💥 The Universal Creator Nightmare (打工人的窒息循环)
-
-Every professional and AI creator has suffered through this brutal loop:
-
-1. **You spend hours using LLMs to craft a pitch/script/proposal**, feeling confident.
-2. **Your manager reviews it for 3 seconds and drops a furious 60-second voice memo**:  
-   > *"What on earth is this? It's so stiff and reeks of generic AI fluff! I want premium and sleek, but not the boring old corporate video style! Make it punchy, you get me?! Redo it!"*
-3. **You frantically feed the exact words into ChatGPT**: *"Make it premium, sleek, and not a boring corporate video."*
-4. **You submit V2, and your manager explodes**:  
-   > *"Who told you to strip away all the actual engineering benchmarks I asked for?! Are you even paying attention?!"*
-
-### Why Standard AI Fails in Real Decision-Making
-Standard LLMs suffer from severe **Over-fitting** and **Lack of Negative Boundary Constraints**:
-- When a boss says *"Don't overcomplicate the factory tour in this 30s video"*, the AI completely erases manufacturing credentials in every future document.
-- When a boss asks for *"a modern vibe"*, the AI injects cheap internet memes into a B2B enterprise deck.
-- When two senior stakeholders disagree, the AI hallucinates into complete paralysis.
-
-> **The Insight**: Your executive is not being erratic—they are making intuitive, multi-variable aesthetic decisions. Your AI simply lacks an engineering framework to align with that intuition.
-
----
-
-## 🚀 Welcome to BossAlign (蛔虫进化之路)
-
-`BossAlign` is not just another prompt template or superficial rewriter.  
-It is a **production-grade "Boss-in-the-Loop" Preference Alignment Framework** designed for complex organizational review pipelines.
-
-It tracks managerial feedback like Git commits, synthesizes strict **Applicability Scope & Negative Boundaries**, and runs a **Pre-Flight "Shadow Boss" Sandbox** before you hit send.
-
-```mermaid
-journey
-    title Evolution from Corporate Doormat to Mind Reader
-    section Stage 1 Feedback Ingestion
-      Manager sends furious voice memo: 1: Creator
-      Denoise emotions and isolate true intent: 4: BossAlign
-    section Stage 2 Boundary Guard
-      Standard AI over-corrects everything: 1: Standard AI
-      Establish negative boundaries against regression: 5: BossAlign
-    section Stage 3 Dialect Compilation
-      Decode ambiguous terms like sleek and premium: 5: BossAlign
-      Assemble copy with grounded operational evidence: 5: BossAlign
-    section Stage 4 One-Shot Approval
-      Executive previews the draft with a smile: 5: Executive
-      Spot on! That is exactly what I wanted: 5: Executive, Creator
-```
-
----
-
-## 🛠️ Four Core Architectural Pillars (四大核武器机制)
-
-### 1. 🧪 Emotion De-noiser (情绪脱水器)
-Executive rants are 80% venting and 20% critical signal.  
-`BossAlign` strips conversational noise and captures:
-- **Core Intent**: Shift from abstract corporate storytelling to grounded operational proof.
-- **Evidence Anchor**: Retain empirical testing data; ban unverified superlative claims.
-
-### 2. 🛡️ Negative Boundary Guard (反例防火墙与边界守卫)
-**The #1 reason AI fails in organizations is unchecked generalization.**  
-Every learned preference rule must strictly define:
-- **Core Directive**: Omit macro assembly-line walkthroughs.
-- **Applicable Scope**: B2B product showcase overview clips.
-- **Negative Boundary (Strict Prohibition)**: **NEVER** apply this rule to R&D capability or QA assurance documents!
-
-### 3. 📖 Boss Dialect Compiler (老板黑话编译器)
-Decodes ambiguous corporate speak into actionable creative execution:
-
-| Executive Slang (领导黑话) | Naive LLM Mistake (传统AI蠢改) | BossAlign Translation (蛔虫引擎精准解码) |
-|---|---|---|
-| **"Make it premium" (高端一点)** | Piles on flashy adjectives like *"luxurious, unparalleled"* | **Cinematic breathing pauses** + **Macro product closeups** + **Restrained, verifiable claims** |
-| **"Make it appeal to Gen-Z" (有网感)** | Stuffs cringe memes, hashtags, and amateur rap | **Dynamic editing rhythm** + **Diegetic sound sync** + **Eliminates monotone broadcast narration** |
-| **"I'm just giving you the rough idea" (我只说个意思)** | Copies the boss's broken sentences verbatim | **Extracts strategic skeleton**, LLM finishes continuous delivery flow |
-
-### 4. 🧼 Clean-Room Sanitizer (交付净室过滤器)
-Deep tracking internally; zero trace externally.  
-- Strips all internal metadata (e.g., `[Adjusted per Boss_Victor EVT-042]`);
-- Exports spotless Markdown, Word, or Excel deliverables that look 100% human-crafted.
-
----
-
-## ⚡ 30-Second Quickstart (极速上手体验)
-
-### Installation
 ```bash
-pip install bossalign
-# Or clone the repo
 git clone https://github.com/davidmercer0620-ai/bossalign.git
-cd bossalign && pip install -e .
+cd bossalign
+python -m pip install -e .
 ```
 
-### 1. Ingest Raw Managerial Feedback
+Try the local synthetic demo. It uses the real SDK and a temporary SQLite database; it makes no model call and does not simulate a person's approval.
+
 ```bash
-bossalign ingest \
-  --reviewer "Boss_Victor" \
-  --raw "This draft feels completely fake! Stop praising our 'craftsmanship' and show actual flight endurance in gale-force winds!" \
-  --context "SkyPulse_Drone_Episode02"
+bossalign demo
 ```
 
-The system automatically parses the raw feedback into a standardized `feedback_event` and synthesizes the negative boundary:
-```json
-{
-  "event_id": "EVT-202610-001",
-  "reviewer": "Boss_Victor",
-  "intent": "Replace abstract craftsmanship claims with empirical gale-force wind tests and flight endurance.",
-  "boundary": {
-    "applicable_to": ["Performance Showcase", "Hardcore Benchmark Testing"],
-    "counter_example": "Strictly prohibited from stripping brand ethos in emotional brand manifesto pieces."
-  }
-}
+### Python SDK
+
+```python
+from bossalign import BossAlign, TaskContext
+
+with BossAlign("bossalign.sqlite3") as align:
+    proposal = align.ingest(
+        "For consumer onboarding copy, avoid 'guaranteed zero downtime'. "
+        "Do not apply this to technical incident reports.",
+        reviewer="reviewer-1",
+        context={
+            "applicable_scope": {
+                "project": "sample-app",
+                "task_type": "consumer_copy",
+                "audience": "consumer",
+            },
+            "negative_boundaries": [{"task_type": "technical_incident_report"}],
+            "deterministic_checks": ["guaranteed zero downtime"],
+            "conflict_key": "downtime_claim",
+            "effect": "avoid",
+        },
+    )
+    print(proposal.status)  # draft: stored, but not active
+
+    rule = align.confirm_rule(proposal.rule_id)  # explicit confirmation step
+    task = TaskContext(
+        project="sample-app",
+        task_type="consumer_copy",
+        audience="consumer",
+    )
+    selection = align.retrieve(task, reviewer="reviewer-1")
+    report = align.check(task, "This copy promises guaranteed zero downtime.", reviewer="reviewer-1")
+
+    print([item.rule_id for item in selection.active_rules])
+    print(report.status)  # violations_found
+    print(report.violations[0].evidence)  # exact matched phrase
+    print(report.user_approved)  # False
 ```
 
-### 2. Generate Draft & Run Pre-Flight Sandbox
+Feedback events, rule records, and version snapshots are stored in SQLite. A new `BossAlign("bossalign.sqlite3")` instance can retrieve the same confirmed rules after restart. `update_rule()` creates another version; `deactivate_rule()` preserves history and stops retrieval.
+
+### Before / after: keeping a correction in its lane
+
+History: “For consumer onboarding copy, avoid ‘guaranteed zero downtime’. Do not apply this to technical incident reports.”
+
+| New task | Ordinary broad memory | BossAlign result |
+| --- | --- | --- |
+| Consumer onboarding copy in `sample-app` | May repeat the phrase, or retrieve a vague “avoid claims” memory | Applies the confirmed rule; exact configured phrase checks can flag the phrase |
+| Technical incident report in `sample-app` | May incorrectly remove a useful incident detail | Excludes the rule because `task_type` matches a negative boundary |
+| Task with no audience or project context | May apply based on vague similarity | Returns uncertainty; it does not force the rule onto the task |
+
+The offline provider does **not** understand arbitrary semantics. It recognizes a small set of instruction/preference cues and checks only exact phrases explicitly configured for deterministic checking. For broader language interpretation, configure an OpenAI-compatible provider; its findings remain model inferences and still require human review.
+
+## CLI
+
+The database path is selected with `--db` before the command, or with `BOSSALIGN_DB`.
+
 ```bash
-bossalign generate \
-  --topic "Episode03_All_Weather_Capability" \
-  --persona "Boss_Victor" \
-  --output "output/script_v1.md"
+# Store a proposal. Supply structured scope; otherwise it will not be activated.
+bossalign --db ./memory.sqlite3 ingest \
+  --reviewer reviewer-1 \
+  --raw "Avoid 'guaranteed zero downtime' in consumer copy." \
+  --context-json '{"applicable_scope":{"project":"sample-app","audience":"consumer"},"negative_boundaries":[{"task_type":"technical_incident_report"}],"deterministic_checks":["guaranteed zero downtime"]}'
+
+# Confirm only after reviewing the stored proposal
+bossalign --db ./memory.sqlite3 rules confirm --rule-id RULE_ID
+
+bossalign --db ./memory.sqlite3 rules --reviewer reviewer-1
+bossalign --db ./memory.sqlite3 rules update --rule-id RULE_ID --directive "Keep the measurement context"
+bossalign --db ./memory.sqlite3 rules deactivate --rule-id RULE_ID
+bossalign --db ./memory.sqlite3 check --file draft.md \
+  --task-context '{"project":"sample-app","task_type":"consumer_copy","audience":"consumer"}' \
+  --reviewer reviewer-1
+bossalign --db ./memory.sqlite3 sanitize --file draft.md --out clean.md
 ```
 
-Terminal Output:
+Commands: `ingest`, `rules`, `check`, `demo`, and `sanitize`. There is no `generate` command in V0.2. Check exit codes are `0` for no reported issue/no applicable rule, `1` for a reported violation or model finding requiring review, and `2` when evaluation is uncertain or cannot run.
+
+## LLM provider
+
+The SDK accepts a provider object. The included adapter uses the OpenAI Chat Completions-compatible request shape and Python's standard library; no vendor SDK is required.
+
+```python
+import os
+from bossalign import BossAlign
+from bossalign.providers import OpenAICompatibleProvider
+
+provider = OpenAICompatibleProvider(
+    base_url=os.environ.get("BOSSALIGN_BASE_URL", "https://api.openai.com/v1"),
+    model=os.environ["BOSSALIGN_MODEL"],
+    api_key=os.environ["BOSSALIGN_API_KEY"],
+)
+align = BossAlign("memory.sqlite3", provider=provider)
+```
+
+The adapter returns a proposal; the SDK still stores it as `draft`. The provider can also return review findings, which are labelled `llm_inference`, include output evidence, and require human judgment. No real provider call is made unless an application explicitly configures and invokes one.
+
+For CLI parsing/review, set `BOSSALIGN_PROVIDER=openai`, `BOSSALIGN_API_KEY`, and `BOSSALIGN_MODEL`; set `BOSSALIGN_BASE_URL` for a compatible endpoint. Listing rules, sanitizing, and the synthetic demo do not need provider credentials.
+
+## Benchmark
+
+Run the public synthetic regression set locally:
+
+```bash
+python benchmarks/run.py
+```
+
+It contains 4 fictional cases (software development, content writing, product design, and data analysis): 4 feedback events, 8 scope decisions, and 12 output checks. The script reports extraction accuracy, scope accuracy, error-generalization rate, and violation precision/recall with sample counts. It makes zero model calls. This small fixture checks expected code paths; it is not a representative language benchmark or a model comparison.
+
+## Architecture
+
 ```text
-[SandBox] Executing Shadow Boss review simulation...
-[PASS] Zero banned superficial marketing slogans detected.
-[PASS] Wind resistance metric pinned to lab report #TR-804.
-[PASS] Pacing check: Word density aligned with Boss_Victor preference.
-[CLEAN] Clean-room sanitization complete! Internal metadata stripped.
-Deliverable ready: output/script_v1.md
+Feedback -> provider proposal -> SQLite event + draft rule
+                                   |
+                         human confirmation
+                                   |
+Task context -> exact scope + negative-boundary evaluation
+                                   |
+                   conflict/uncertainty report
+                                   |
+Output -> configured phrase checks + optional LLM findings
 ```
 
----
+The SDK, CLI, and demo share the same parser, store, boundary engine, and checker. SQLite is the only runtime storage. The existing clean-room helper remains a small tag sanitizer; it is not a general privacy scanner or export pipeline.
 
-## 📂 Project Structure (项目规范结构)
+## Current limits
 
-```text
-bossalign/
-├── bossalign/               # Python core engine code
-│   ├── parser.py            # Emotion de-noiser & intent extraction
-│   ├── boundary.py          # Negative boundary guard & regression check
-│   ├── sandbox.py           # Pre-flight shadow boss review simulation
-│   └── sanitizer.py         # Clean-room deliverable sanitizer
-├── docs/                    # Architectural Whitepapers (核心白皮书)
-│   ├── 01_boundary_guard_en.md # On Negative Boundaries: Ending AI Over-fitting
-│   ├── 02_evidence_ladder_en.md# The Evidence Ladder: Isolating Quotes, Grounding & Speculation
-│   └── 03_clean_room_en.md     # Clean-Room Delivery: The Ultimate Workplace Survival Law
-└── examples/                # Benchmark Synthetic Showcase (实战演示)
-    └── skypulse_drone/      # SkyPulse Drone Campaign (dual_review_rules_en.md, output_script_en.md)
+- Offline parsing is heuristic and English/Chinese cue-based, not general semantic extraction.
+- Scope matching uses normalized exact values, not embeddings or fuzzy matching.
+- Unstructured negative boundaries are treated as uncertain; supply condition objects such as `{"audience":"technical"}`.
+- Deterministic output checks look for configured exact phrases. They do not prove semantic compliance.
+- LLM provider compatibility is defined by the OpenAI Chat Completions request shape; no third-party client has been integration-tested here.
+- MCP is deferred until the V0.2 SDK and core behavior have broader validation. No MCP client compatibility is claimed.
+- The benchmark is a small fictional regression set, not evidence of production reliability or broad accuracy.
+
+## FAQ
+
+**Does BossAlign call a model by default?** No. The default provider is deterministic and offline. Set up a provider explicitly for model-assisted parsing or review.
+
+**Does a `no_deterministic_violations_found` result mean the draft is approved?** No. It means only that the configured exact-phrase checks did not find a match. `user_approved` remains `false`.
+
+**Can it generate or rewrite content?** V0.2 does not generate drafts. Use your existing agent to write content, then pass that output and its task context to `check()`.
+
+**Where is memory stored?** In the SQLite file passed to `BossAlign`, or by default at `~/.bossalign/memory.sqlite3`. Storage is local. If you explicitly configure and invoke an external Provider, the input to that provider call is sent to that service.
+
+**What happens when context is missing?** BossAlign returns uncertainty and does not force a scoped rule onto the task.
+
+**Does it include MCP support?** No. MCP is deferred; no MCP client compatibility is claimed.
+
+## Development
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest -q
+ruff check bossalign tests benchmarks
+python -m bossalign demo
+python benchmarks/run.py
 ```
 
----
-
-## 🛡️ Privacy & Compliance Guarantee (脱敏安全承诺)
-
-All datasets, showcase materials, and rules in this repository are **100% synthetic mock examples** (e.g., the fictional smart hardware brand *SkyPulse Robotics*).  
-**No confidential corporate data, real executive identities, proprietary formulas, or private recordings are included.**
-
----
-
-## 🤝 Community & Contributing
-
-Tired of getting rejected on draft revisions? Join us!
-- Submit a PR with a Boss Dialect Decoder for your industry.
-- Add mock industry templates (Healthcare, SaaS, Automotive, PR).
-
-**If BossAlign saved your sanity at work, give us a ⭐ on GitHub!**
+See [CONTRIBUTING.md](CONTRIBUTING.md), [Architecture](docs/architecture.md), and the [Chinese README](README_CN.md). Licensed under MIT; see [LICENSE](LICENSE).

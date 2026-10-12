@@ -2,9 +2,9 @@ import re
 
 def sanitize_deliverable(content: str) -> str:
     """
-    Clean-room sanitizer:
-    Strips internal metadata, debug tags, rule IDs, and stakeholder notes
-    so the final output looks 100% human-crafted and clean.
+    Remove selected BossAlign tags and normalize repeated blank lines.
+
+    This is a small text helper, not a general privacy or metadata scanner.
     """
     # 1. Strip HTML-like comments <!-- bossalign: ... -->
     content = re.sub(r"<!--\s*bossalign:.*?-->", "", content, flags=re.DOTALL)

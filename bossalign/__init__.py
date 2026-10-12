@@ -1,7 +1,15 @@
-"""
-BossAlign (蛔虫引擎 / Roundworm)
-A production-grade "Boss-in-the-Loop" Preference Alignment Framework.
-"""
+"""BossAlign: the feedback alignment layer for AI agents."""
 
-__version__ = "0.1.0"
-__all__ = ["schema", "parser", "boundary", "sandbox", "sanitizer"]
+from .schema import BoundaryRule, CheckReport, FeedbackEvent, FeedbackKind, RuleStatus, TaskContext
+from .sdk import BossAlign
+
+__version__ = "0.2.0"
+__all__ = [
+    "BossAlign",
+    "BoundaryRule",
+    "CheckReport",
+    "FeedbackEvent",
+    "FeedbackKind",
+    "RuleStatus",
+    "TaskContext",
+]
