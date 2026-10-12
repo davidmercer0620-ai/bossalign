@@ -1,176 +1,183 @@
-# BossAlign (蛔虫引擎 / Roundworm) 🐛⚡
+# BossAlign (Codename: Roundworm) 🐛⚡
 
-> **把领导的每一次夺命吐槽，变成下一次“一稿过审”的强化学习。**  
-> *让领导惊呼：“卧槽……我要的就是这种感觉，你小子简直是我肚子里的蛔虫！”*
+> **Turn ruthless managerial feedback into one-shot approvals.**  
+> *Make your stakeholders exclaim: "Holy crap, that's EXACTLY what I wanted! How did you read my mind?!"*
+
+<p align="center">
+  <b>English</b> | 
+  <a href="README_CN.md"><b>📖 简体中文文档</b></a> | 
+  <a href="docs/01_boundary_guard_en.md">Architecture Docs</a> | 
+  <a href="examples/skypulse_drone/output_script_en.md">Mock Showcase</a>
+</p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Status: Production-Ready](https://img.shields.io/badge/Status-Battle--Tested-orange.svg)](#)
-
-### 🌐 Language / 语言: [English 🇺🇸](README_EN.md) | **[简体中文 🇨🇳](README.md)**
-[核心白皮书 (docs/)](docs/) | [虚构案例 Demo](examples/skypulse_drone/)
+[![Status: Battle-Tested](https://img.shields.io/badge/Status-Battle--Tested-orange.svg)](#)
 
 ---
 
-## 💥 每一个打工人和 AI 创作者的窒息瞬间
+## 💥 The Universal Creator Nightmare
 
-你一定经历过这样的地狱循环：
+Every professional and AI creator knows this brutal loop:
 
-1. **你花了一整天，用 AI 生成了一版方案/视频脚本**，满心欢喜发给老板。
-2. **老板点开 3 秒，发来一条 59 秒暴躁语音**：  
-   > *“这写的什么狗屁？太死板了！一股浓浓的 AI 味！我要的是高端、有质感，但不要老式宣传片那一套！接地气点，懂不懂？重新改！”*
-3. **你抓耳挠腮，把老板的话原封不动喂给 ChatGPT**：*“请改得高端、有质感、不要老式宣传片”*。
-4. **第二版交上去，老板彻底拍桌子**：  
-   > *“谁让你把我刚才说的真实应用全删了？！你到底长没长脑子？！”*
-
----
-
-### 为什么普通的 AI 越改越烂？
-
-大模型的致命缺陷在于 **“缺乏反例边界”** 和 **“过度矫枉过正（Over-fitting）”**：
-- 老板说：“这篇不要讲太多工厂细节”，普通 AI 下一篇就**彻底把工厂删光**；
-- 老板说：“文案要有网感”，普通 AI 立刻塞满**过时的烂梗**；
-- 大老板和二老板意见冲突，AI 更是**直接精神分裂**。
-
-**老板并不是故意挑刺，老板是在用他多年的商业直觉做“模糊审美决策”；而你的 AI，缺乏一套捕获这种直觉的工程对齐系统。**
+1. **You spend hours using LLMs to craft a pitch/script/proposal**, feeling confident.
+2. **Your manager reviews it for 3 seconds and drops a furious 60-second voice memo**:  
+   > *"What on earth is this? It's so stiff and reeks of generic AI fluff! I want premium and sleek, but not the boring old corporate video style! Make it punchy, you get me?! Redo it!"*
+3. **You frantically feed the exact words into ChatGPT**: *"Make it premium, sleek, and not a boring corporate video."*
+4. **You submit V2, and your manager explodes**:  
+   > *"Who told you to strip away all the actual engineering benchmarks I asked for?! Are you even paying attention?!"*
 
 ---
 
-## 🚀 欢迎来到 BossAlign（蛔虫引擎）
+### Why Standard AI Fails in Real Decision-Making
 
-`BossAlign` 不是一个简单的 Prompt，也不是浮于表面的润色工具。  
-它是**一套专为复杂审批环境设计的“人类决策者在环（Boss-in-the-Loop）偏好对齐框架”**。
+Standard LLMs suffer from severe **Over-fitting** and **Lack of Negative Boundary Constraints**:
+- When a boss says *"Don't overcomplicate the factory tour in this 30s video"*, the AI completely erases manufacturing credentials in every future document.
+- When a boss asks for *"a modern vibe"*, the AI injects cheap internet slang into a B2B enterprise deck.
+- When two senior stakeholders disagree, the AI hallucinates into complete paralysis.
 
-它把领导的每一次微信吐槽、红字批注、会议争吵，像 Git 提交一样记录下来，提炼出**“适用场景与反例边界”**，并在交稿前启动**“影子老板沙箱”**内部挑刺。
+**Your executive is not being erratic—they are making intuitive, multi-variable aesthetic decisions. Your AI simply lacks an engineering framework to align with that intuition.**
+
+---
+
+## 🚀 Introducing BossAlign
+
+`BossAlign` is not just another prompt template or superficial rewriter.  
+It is a **production-grade "Boss-in-the-Loop" Preference Alignment Framework** designed for complex organizational review pipelines.
+
+It tracks managerial feedback like Git commits, synthesizes strict **Applicability Scope & Negative Boundaries**, and runs a **Pre-Flight "Shadow Boss" Sandbox** before you hit send.
 
 ```mermaid
 journey
-    title 打工人的“肚里蛔虫”进化曲线
-    section 阶段 1：挨骂录入
-      领导发来59秒暴躁语音: 1: 打工人
-      情绪脱水，锁定本质诉求: 4: 蛔虫引擎
-    section 阶段 2：边界守卫
-      传统AI一刀切瞎改: 1: 传统AI
-      建立反例防火墙，绝不犯旧错: 5: 蛔虫引擎
-    section 阶段 3：黑话破译
-      破译“高端大气”、“不要死板”等黑话: 5: 蛔虫引擎
-      用真实业务细节组装执行文案: 5: 蛔虫引擎
-    section 阶段 4：一稿通神
-      领导点开预览，眉头舒展: 5: 领导
-      “卧槽！我要的就是这个！你是我肚子里的蛔虫吧？！”: 5: 领导, 打工人
+    title The Evolution from Corporate Doormat to "Mind Reader"
+    section Stage 1: De-noising
+      Manager sends furious voice memo: 1: Creator
+      De-noise emotions, isolate true intent: 4: BossAlign
+    section Stage 2: Boundary Guard
+      Standard AI over-corrects everything: 1: Standard AI
+      Establish negative boundaries to avoid regression: 5: BossAlign
+    section Stage 3: Dialect Compilation
+      Decode ambiguous terms like 'sleek' and 'modern': 5: BossAlign
+      Assemble copy with grounded operational evidence: 5: BossAlign
+    section Stage 4: One-Shot Approval
+      Executive previews the draft with a smile: 5: Executive
+      "Holy crap, this is spot on! Are you in my head?!": 5: Executive, Creator
 ```
 
 ---
 
-## 🛠️ 四大核武器机制
+## 🛠️ Key Architectural Pillars
 
-### 1. 情绪脱水器 (Emotion De-noiser)
-领导发火的语音里，80% 是情绪发泄，20% 才是有效信息。  
-框架自动过滤 *“这什么玩意”、“到底懂不懂”* 等噪音，精准捕获：
-- **核心诉求**：压缩概念叙事，强化实际应用场景。
-- **业务锚点**：保留测试数据与对比动作，删除空洞口号。
+### 1. Emotion De-noiser
+Executive rants are 80% venting and 20% critical signal.  
+`BossAlign` strips conversational noise and captures:
+- **Core Intent**: Shift from abstract corporate storytelling to grounded operational proof.
+- **Evidence Anchor**: Retain empirical testing data; ban unverified superlative claims.
 
-### 2. 反例防火墙与边界守卫 (Negative Boundary Guard) —— 核心灵魂！
-**这是防止 AI 犯蠢的关键。** 任何一条原则被录入时，必须强制生成三要素：
-- **核心主张**：本篇减少宏观工艺介绍。
-- **适用场景**：面向采购商的产品选型介绍篇。
-- **反例边界（严禁跨界乱套）**：研发实力篇与出海交付篇**严禁**删减工艺细节！
+### 2. Negative Boundary Guard (The Anti-Overfitting Moat)
+**The #1 reason AI fails in organizations is unchecked generalization.**  
+Every learned preference rule must strictly define:
+- **Core Directive**: Omit macro assembly-line walkthroughs.
+- **Applicable Scope**: B2B product showcase overview clips.
+- **Negative Boundary (Strict Prohibition)**: **NEVER** apply this rule to R&D capability or QA assurance documents!
 
-### 3. 老板黑话编译器 (Boss Dialect Compiler)
-破译中国式领导的典型高频模糊黑话：
-| 领导黑话 | 传统 AI 的蠢改 | 蛔虫引擎的精准解码 |
+### 3. Boss Dialect Compiler
+Decodes ambiguous corporate speak into actionable creative execution:
+| Executive Slang | Naive LLM Mistake | BossAlign Translation |
 |---|---|---|
-| **“高端一点”** | 狂堆成语、“奢华典雅、尊贵非凡” | **声画留白** + **实物微距特写** + **克制不说满话** |
-| **“要有00后网感”** | 硬塞网络热梗、自嗨说唱 | **加快剪辑节奏** + **声画卡点** + **拒绝假大空老播音腔** |
-| **“我只是说个意思”** | 逐字照抄领导的原话，导致语病百出 | **领会战略骨架**，AI 负责补齐连贯可执行的业务动线 |
+| **"Make it premium"** | Piles on flashy adjectives like "luxurious, unparalleled" | **Cinematic breathing pauses** + **Macro product closeups** + **Restrained, verifiable claims** |
+| **"Make it appeal to Gen-Z"** | Stuffs cringe memes and hashtags | **Dynamic editing rhythm** + **Diegetic sound sync** + **Eliminates monotone broadcast narration** |
+| **"I'm just giving you the rough idea"** | Copies the boss's broken sentences verbatim | **Extracts strategic skeleton**, LLM finishes continuous delivery flow |
 
-### 4. 交付净室过滤器 (Clean-Room Sanitizer)
-内部学习再深刻，对外交付必须**不留一丝马脚**。
-- 彻底物理清洗所有内部标签（如 `[根据王总 feedback-042 修改]`）；
-- 导出的 Word / Excel / 脚本干干净净，就像你通宵苦思冥想亲自写出来的一样纯粹。
+### 4. Clean-Room Sanitizer
+Deep tracking internally; zero trace externally.  
+- Strips all internal metadata (e.g., `[Adjusted per Boss_Victor EVT-042]`);
+- Exports spotless Markdown, Word, or Excel deliverables that look 100% human-crafted.
 
 ---
 
-## ⚡ 30 秒极速体验
+## ⚡ Quickstart in 30 Seconds
 
-### 安装
+### Installation
 ```bash
 pip install bossalign
-# 或者克隆本仓库
-git clone https://github.com/your-repo/bossalign.git
+# Or clone the repo
+git clone https://github.com/davidmercer0620-ai/bossalign.git
 cd bossalign && pip install -e .
 ```
 
-### 1. 录入一次领导的“夺命吐槽”
+### 1. Ingest Raw Managerial Feedback
 ```bash
 bossalign ingest \
   --reviewer "Boss_Victor" \
-  --raw "这段太假了！什么匠心智造都是废话，我要看实际能飞多久、抗几级风，但别搞成说明书！" \
-  --context "天脉无人机篇02_性能展示"
+  --raw "This draft feels completely fake! Stop praising our 'craftsmanship' and show actual flight endurance in gale-force winds!" \
+  --context "SkyPulse_Drone_Episode02"
 ```
-系统将自动生成标准化的 `feedback_event` 并推导反例边界：
+
+The system automatically parses the raw feedback into a standardized `feedback_event` and synthesizes the negative boundary:
 ```json
 {
   "event_id": "EVT-202610-001",
   "reviewer": "Boss_Victor",
-  "intent": "用具体抗风实测与续航代替抽象匠心宣传",
+  "intent": "Replace abstract craftsmanship claims with empirical gale-force wind tests and flight endurance.",
   "boundary": {
-    "applicable_to": ["性能展示篇", "硬核评测篇"],
-    "counter_example": "严禁在品牌故事篇中纯报参数，故事篇仍需保留品牌温度"
+    "applicable_to": ["Performance Showcase", "Hardcore Benchmark Testing"],
+    "counter_example": "Strictly prohibited from stripping brand ethos in emotional brand manifesto pieces."
   }
 }
 ```
 
-### 2. 生成新方案并运行“影子老板沙箱”
+### 2. Generate Draft & Run Pre-Flight Sandbox
 ```bash
 bossalign generate \
-  --topic "篇03_天脉无人机全天候作业实力" \
+  --topic "Episode03_All_Weather_Capability" \
   --persona "Boss_Victor" \
   --output "output/script_v1.md"
 ```
-沙箱自动拦截旧错，并在终端输出：
+
+Terminal Output:
 ```text
-[SandBox] 正在运行影子老板审阅...
-[PASS] 未发现假大空总结词汇
-[PASS] 抗风等级与续航实测数据已锚定真实测试报告
-[PASS] 叙事节奏检测：每镜字数与停顿已对齐 Boss_Victor 紧凑偏好
-[CLEAN] 净室清洗完成，内部元数据已擦除！
-交付文件已生成：output/script_v1.md
+[SandBox] Executing Shadow Boss review simulation...
+[PASS] Zero banned superficial marketing slogans detected.
+[PASS] Wind resistance metric pinned to lab report #TR-804.
+[PASS] Pacing check: Word density aligned with Boss_Victor preference.
+[CLEAN] Clean-room sanitization complete! Internal metadata stripped.
+Deliverable ready: output/script_v1.md
 ```
 
 ---
 
-## 📂 项目结构
+## 📂 Project Structure
 
 ```text
 bossalign/
-├── bossalign/               # Python 核心引擎代码
-│   ├── parser.py            # 情绪脱水与反馈结构化解析
-│   ├── boundary.py          # 反例边界守卫与旧错回查
-│   ├── sandbox.py           # 交付前影子老板审查沙箱
-│   └── sanitizer.py         # 净室导出清洗器
-├── docs/                    # 核心设计白皮书
-│   ├── 01_boundary_guard.md # 论“反例边界”如何终结大模型一刀切
-│   ├── 02_evidence_ladder.md# 证据阶梯：原话、事实与推断隔离
-│   └── 03_clean_room.md     # 净室原则：职场生存交付法则
-└── examples/                # 标杆级虚构案例库
-    └── skypulse_drone/      # SkyPulse 天脉智航无人机宣传片一稿过审实录
+├── bossalign/               # Python core engine code
+│   ├── parser.py            # Emotion de-noiser & intent extraction
+│   ├── boundary.py          # Negative boundary guard & regression check
+│   ├── sandbox.py           # Pre-flight shadow boss review simulation
+│   └── sanitizer.py         # Clean-room deliverable sanitizer
+├── docs/                    # Architectural Whitepapers
+│   ├── 01_boundary_guard_en.md # On Negative Boundaries: Ending AI Over-fitting
+│   ├── 02_evidence_ladder_en.md# The Evidence Ladder: Isolating Quotes, Grounding & Speculation
+│   └── 03_clean_room_en.md     # Clean-Room Delivery: The Ultimate Workplace Survival Law
+└── examples/                # Benchmark Synthetic Showcase
+    └── skypulse_drone/      # SkyPulse Drone Campaign (dual_review_rules_en.md, output_script_en.md)
 ```
 
 ---
 
-## 🛡️ 隐私与数据安全（严格脱敏承诺）
+## 🛡️ Privacy & Compliance Guarantee
 
-本开源项目的所有演示数据、文档案例与规则样本均为**完全虚构的工业示例**（如智能硬件制造 `SkyPulse`）。  
-**绝不包含任何真实商业机密、真实人物姓名、真实产品参数或真实录音资产。**
+All datasets, showcase materials, and rules in this repository are **100% synthetic mock examples** (e.g., the fictional smart hardware brand *SkyPulse Robotics*).  
+**No confidential corporate data, real executive identities, proprietary formulas, or private recordings are included.**
 
 ---
 
-## 🤝 贡献与共建
+## 🤝 Community & Contributing
 
-如果你也曾在改稿的地狱里被折磨得痛不欲生，欢迎加入我们！
-- 提交一个你老板的经典黑话解码器（PR）
-- 补充更多行业的虚构对齐案例（政企方案、广告公关、技术白皮书）
+Tired of getting rejected on draft revisions? Join us!
+- Submit a PR with a Boss Dialect Decoder for your industry.
+- Add mock industry templates (Healthcare, SaaS, Automotive, PR).
 
-**如果这个项目帮你在领导面前挽回过尊严，别忘了点亮右上角的 🌟 Star！**
+**If BossAlign saved your sanity at work, give us a ⭐ on GitHub!**
