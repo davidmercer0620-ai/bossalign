@@ -102,12 +102,14 @@ class MemoryStore:
         self,
         reviewer: Optional[str] = None,
         project: Optional[str] = None,
+        preference_owner: Optional[str] = None,
         include_inactive: bool = True,
     ) -> List[BoundaryRule]:
         rules = self.all_rules(include_inactive=include_inactive)
         return [
             rule for rule in rules
             if (reviewer is None or rule.reviewer == reviewer)
+            and (preference_owner is None or rule.preference_owner == preference_owner)
             and (
                 project is None
                 or rule.applicable_scope.get("project") in (None, project)
@@ -143,6 +145,25 @@ class MemoryStore:
                 "SELECT snapshot_json FROM rule_versions WHERE rule_id = ? ORDER BY version", (rule_id,)
             ).fetchall()
         return [json.loads(row["snapshot_json"]) for row in rows]
+
+    def delete_rule(self, rule_id: str, source_event_ids=()) -> bool:
+        """Delete a rule, its history, and the source events owned by that rule."""
+        with self._lock, self._connection:
+            current = self._connection.execute(
+                "SELECT 1 FROM rules WHERE rule_id = ?", (rule_id,)
+            ).fetchone()
+            if current is None:
+                return False
+            event_ids = list(dict.fromkeys(source_event_ids or ()))
+            if event_ids:
+                placeholders = ",".join("?" for _ in event_ids)
+                self._connection.execute(
+                    "DELETE FROM feedback_events WHERE event_id IN (%s)" % placeholders,
+                    event_ids,
+                )
+            self._connection.execute("DELETE FROM rule_versions WHERE rule_id = ?", (rule_id,))
+            self._connection.execute("DELETE FROM rules WHERE rule_id = ?", (rule_id,))
+            return True
 
     def feedback_events(self, reviewer: Optional[str] = None) -> List[FeedbackEvent]:
         if reviewer is None:

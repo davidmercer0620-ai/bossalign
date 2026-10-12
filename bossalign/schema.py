@@ -30,6 +30,14 @@ class FeedbackKind(str, Enum):
     HYPOTHESIS = "hypothesis"
 
 
+class FeedbackAttribution(str, Enum):
+    """Who supplied the preference evidence, independent of what it says."""
+
+    DIRECT = "direct"
+    THIRD_PARTY = "third_party"
+    AI_INFERENCE = "ai_inference"
+
+
 @dataclass
 class FeedbackEvent:
     """Immutable source record for a feedback-to-rule conversion."""
@@ -45,6 +53,11 @@ class FeedbackEvent:
     source: str = "user_feedback"
     origin: str = FeedbackKind.HYPOTHESIS.value
     confidence: float = 0.0
+    attribution: str = FeedbackAttribution.DIRECT.value
+    preference_owner: Optional[str] = None
+    communicative_intent: str = "unspecified"
+    rule_candidate: bool = True
+    sensitive: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         result = asdict(self)
@@ -86,10 +99,19 @@ class BoundaryRule:
     effect: str = ""
     deterministic_checks: List[str] = field(default_factory=list)
     confirmed_by: Optional[str] = None
+    preference_owner: Optional[str] = None
+    attribution: str = FeedbackAttribution.DIRECT.value
+    communicative_intent: str = "unspecified"
+    rule_candidate: bool = True
+    valid_from: Optional[str] = None
+    valid_until: Optional[str] = None
+    sensitive: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, RuleStatus):
             self.status = RuleStatus(str(self.status))
+        if self.attribution not in {item.value for item in FeedbackAttribution}:
+            raise ValueError("Unsupported feedback attribution: %s" % self.attribution)
         self.confidence = max(0.0, min(1.0, float(self.confidence)))
         if self.version < 1:
             raise ValueError("Rule version must be at least 1")
@@ -122,12 +144,18 @@ class TaskContext:
     audience: Optional[str] = None
     objective: Optional[str] = None
     task_id: Optional[str] = None
+    interaction_context: Optional[str] = None
+    preference_owner: Optional[str] = None
+    as_of: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     current_overrides: List[Dict[str, str]] = field(default_factory=list)
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "TaskContext":
-        allowed = {"project", "task_type", "topic", "audience", "objective", "task_id", "tags", "current_overrides"}
+        allowed = {
+            "project", "task_type", "topic", "audience", "objective", "task_id",
+            "interaction_context", "preference_owner", "as_of", "tags", "current_overrides",
+        }
         data = {key: value[key] for key in allowed if key in value}
         data["tags"] = list(data.get("tags") or [])
         data["current_overrides"] = list(data.get("current_overrides") or [])

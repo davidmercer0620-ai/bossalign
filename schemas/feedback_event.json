@@ -14,7 +14,12 @@
     "derived_rule_id",
     "source",
     "origin",
-    "confidence"
+    "confidence",
+    "attribution",
+    "preference_owner",
+    "communicative_intent",
+    "rule_candidate",
+    "sensitive"
   ],
   "properties": {
     "event_id": {"type": "string"},
@@ -25,12 +30,17 @@
       "enum": ["L1_DIRECT_QUOTE", "L2_FACTUAL_GROUNDING", "L3_TRANSFERRED_NOTE", "L4_AI_SPECULATION"]
     },
     "topic_context": {"type": "string"},
-    "raw_content": {"type": "string", "minLength": 1},
+    "raw_content": {"type": "string"},
     "extracted_intent": {"type": "string"},
     "derived_rule_id": {"type": ["string", "null"]},
     "source": {"type": "string"},
     "origin": {"type": "string", "enum": ["explicit_instruction", "user_preference", "ai_inference", "hypothesis"]},
-    "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "attribution": {"type": "string", "enum": ["direct", "third_party", "ai_inference"]},
+    "preference_owner": {"type": ["string", "null"]},
+    "communicative_intent": {"type": "string"},
+    "rule_candidate": {"type": "boolean"},
+    "sensitive": {"type": "boolean"}
   },
   "additionalProperties": false
 }

@@ -1,13 +1,17 @@
 """Conservative, explainable rule selection and conflict detection."""
 
 import re
+from datetime import datetime, timezone
 from typing import List, Mapping, Optional, Sequence
 
 from .schema import BoundaryRule, RuleConflict, RuleDecision, RuleSelection, RuleStatus, TaskContext
 
 
 MIN_ACTIVE_CONFIDENCE = 0.6
-_SCOPE_KEYS = ("project", "task_type", "topic", "audience", "objective", "task_id", "tags")
+_SCOPE_KEYS = (
+    "project", "task_type", "topic", "audience", "objective", "task_id",
+    "interaction_context", "tags",
+)
 
 
 def _norm(value: object) -> str:
@@ -22,6 +26,14 @@ def _matches(expected: object, actual: object, key: str) -> bool:
     expected_values = expected if isinstance(expected, (list, tuple, set)) else [expected]
     actual_values = actual if isinstance(actual, (list, tuple, set)) else [actual]
     return any(_norm(left) == _norm(right) for left in expected_values for right in actual_values)
+
+
+def _parse_timestamp(value: str) -> datetime:
+    normalized = value.strip().replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _rule_scope(rule: BoundaryRule) -> dict:
@@ -55,8 +67,28 @@ class BoundaryEngine:
             if reviewer is not None and rule.reviewer != reviewer:
                 selection.excluded_rules.append(RuleDecision(rule.rule_id, "reviewer scope does not match the requested reviewer"))
                 continue
+            if rule.preference_owner and task.preference_owner and rule.preference_owner != task.preference_owner:
+                selection.excluded_rules.append(RuleDecision(rule.rule_id, "preference owner does not match the task subject"))
+                continue
+            # Legacy rules inherit reviewer identity as their owner. An explicitly
+            # different owner must be present in task context before application.
+            if rule.preference_owner and rule.preference_owner != rule.reviewer and not task.preference_owner:
+                selection.uncertain_rules.append(
+                    RuleDecision(rule.rule_id, "insufficient context: preference owner is unknown")
+                )
+                continue
+            if task.preference_owner and not rule.preference_owner:
+                selection.uncertain_rules.append(
+                    RuleDecision(rule.rule_id, "insufficient context: stored rule does not identify its preference owner")
+                )
+                continue
             if rule.status == RuleStatus.INACTIVE:
                 selection.excluded_rules.append(RuleDecision(rule.rule_id, "rule is inactive"))
+                continue
+            if not rule.rule_candidate:
+                selection.excluded_rules.append(
+                    RuleDecision(rule.rule_id, "feedback was classified as not eligible for a persistent rule")
+                )
                 continue
             if rule.status != RuleStatus.CONFIRMED:
                 selection.excluded_rules.append(RuleDecision(rule.rule_id, "rule is unconfirmed; draft proposals are not applied"))
@@ -66,6 +98,23 @@ class BoundaryEngine:
                     RuleDecision(rule.rule_id, "confidence %.2f is below activation threshold %.2f" % (rule.confidence, MIN_ACTIVE_CONFIDENCE))
                 )
                 continue
+
+            if rule.valid_from or rule.valid_until:
+                try:
+                    as_of = _parse_timestamp(task.as_of) if task.as_of else datetime.now(timezone.utc)
+                    valid_from = _parse_timestamp(rule.valid_from) if rule.valid_from else None
+                    valid_until = _parse_timestamp(rule.valid_until) if rule.valid_until else None
+                except (TypeError, ValueError, OverflowError):
+                    selection.uncertain_rules.append(
+                        RuleDecision(rule.rule_id, "invalid validity timestamp; rule was not applied")
+                    )
+                    continue
+                if valid_from and as_of < valid_from:
+                    selection.excluded_rules.append(RuleDecision(rule.rule_id, "rule is not yet valid"))
+                    continue
+                if valid_until and as_of >= valid_until:
+                    selection.excluded_rules.append(RuleDecision(rule.rule_id, "rule has expired"))
+                    continue
 
             if rule.prohibited_topics:
                 selection.uncertain_rules.append(

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bossalign"
 version = "0.2.0"
-description = "The feedback alignment layer for AI agents: persistent, scoped rules with negative boundaries."
+description = "A human feedback alignment engine for AI agents with scoped, reviewable rules and explicit boundaries."
 readme = "README.md"
 authors = [{ name = "BossAlign Contributors" }]
 license = { text = "MIT" }

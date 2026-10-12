@@ -19,9 +19,15 @@ def _rule_summary(rule: BoundaryRule):
     return {
         "rule_id": rule.rule_id,
         "reviewer": rule.reviewer,
+        "preference_owner": rule.preference_owner,
+        "attribution": rule.attribution,
         "directive": rule.directive,
         "scope": rule.applicable_scope,
         "negative_boundaries": rule.negative_boundaries,
+        "communicative_intent": rule.communicative_intent,
+        "valid_from": rule.valid_from,
+        "valid_until": rule.valid_until,
+        "sensitive": rule.sensitive,
         "confidence": rule.confidence,
         "origin": rule.origin,
         "status": rule.status.value,
@@ -81,13 +87,25 @@ def _cmd_ingest(args) -> int:
                 context=context,
                 confirm=args.confirm,
                 source=args.source,
+                preference_owner=args.preference_owner,
+                attribution=args.attribution,
+                valid_from=args.valid_from,
+                valid_until=args.valid_until,
+                sensitive=args.sensitive,
+                consent_to_store_sensitive=args.consent_to_store_sensitive,
+                allow_external_processing=args.allow_external_processing,
+                retain_source_text=args.retain_source_text,
+                confirmed_by=args.confirmed_by,
             )
         except ValueError as error:
-            print("Rule stored as draft; confirmation was not completed: %s" % error)
+            print("bossalign: %s" % error, file=sys.stderr)
             return 2
         print(json.dumps(_rule_summary(rule), ensure_ascii=False, indent=2))
         if rule.status == RuleStatus.DRAFT:
-            print("Stored as draft. It will not be applied until reviewed and confirmed.")
+            if not rule.rule_candidate:
+                print("Stored as a non-rule feedback event. It cannot be confirmed or applied as a persistent rule.")
+            else:
+                print("Stored as draft. It will not be applied until reviewed and confirmed.")
             if not rule.applicable_scope:
                 print("No structured scope was supplied; retrieval will remain uncertain.")
         return 0
@@ -95,15 +113,24 @@ def _cmd_ingest(args) -> int:
 
 def _cmd_rules(args) -> int:
     with _new_client(args.db) as client:
-        if args.action in ("confirm", "deactivate"):
+        if args.action == "delete":
+            if not args.rule_id:
+                print("rules delete requires --rule-id", file=sys.stderr)
+                return 2
+            if not client.delete_rule(args.rule_id):
+                print("bossalign: Unknown rule: %s" % args.rule_id, file=sys.stderr)
+                return 2
+            print(json.dumps({"rule_id": args.rule_id, "deleted": True}, ensure_ascii=False))
+            return 0
+        if args.action in ("confirm", "deactivate", "revoke"):
             if not args.rule_id:
                 print("rules %s requires --rule-id" % args.action, file=sys.stderr)
                 return 2
             try:
                 rule = (
-                    client.confirm_rule(args.rule_id)
+                    client.confirm_rule(args.rule_id, confirmed_by=args.confirmed_by)
                     if args.action == "confirm"
-                    else client.deactivate_rule(args.rule_id)
+                    else client.revoke_rule(args.rule_id)
                 )
             except (KeyError, ValueError) as error:
                 print("bossalign: %s" % error, file=sys.stderr)
@@ -129,6 +156,14 @@ def _cmd_rules(args) -> int:
                 changes["conflict_key"] = args.conflict_key
             if args.effect is not None:
                 changes["effect"] = args.effect
+            if args.preference_owner is not None:
+                changes["preference_owner"] = args.preference_owner
+            if args.valid_from is not None:
+                changes["valid_from"] = args.valid_from
+            if args.valid_until is not None:
+                changes["valid_until"] = args.valid_until
+            if args.attribution is not None:
+                changes["attribution"] = args.attribution
             if not changes:
                 print("rules update requires at least one field to change", file=sys.stderr)
                 return 2
@@ -139,7 +174,12 @@ def _cmd_rules(args) -> int:
                 return 2
             print(json.dumps(_rule_summary(rule), ensure_ascii=False, indent=2))
             return 0
-        rules = client.rules(reviewer=args.reviewer, project=args.project, include_inactive=args.all)
+        rules = client.rules(
+            reviewer=args.reviewer,
+            project=args.project,
+            preference_owner=args.preference_owner,
+            include_inactive=args.all,
+        )
         print(json.dumps([_rule_summary(rule) for rule in rules], ensure_ascii=False, indent=2))
     return 0
 
@@ -208,7 +248,7 @@ def _cmd_demo(_args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bossalign",
-        description="The feedback alignment layer for AI agents: scoped rules, persistent evidence, and explainable checks.",
+        description="Human feedback alignment for AI agents: scoped rules, persistent evidence, and explainable checks.",
     )
     parser.add_argument(
         "--db",
@@ -222,14 +262,25 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("--raw", required=True, help="Verbatim feedback text")
     ingest.add_argument("--context-json", default="{}", help="Structured source context and proposed scope")
     ingest.add_argument("--source", default="user_feedback")
+    ingest.add_argument("--attribution", choices=("direct", "third_party", "ai_inference"), default="direct")
+    ingest.add_argument("--preference-owner", help="Identity of the person whose preference this rule concerns")
+    ingest.add_argument("--valid-from", help="ISO-8601 start time for a temporary rule")
+    ingest.add_argument("--valid-until", help="ISO-8601 expiry time for a temporary rule")
+    ingest.add_argument("--sensitive", action="store_true", help="Apply local-first storage consent checks")
+    ingest.add_argument("--consent-to-store-sensitive", action="store_true", help="Explicitly allow storing a minimized sensitive rule")
+    ingest.add_argument("--allow-external-processing", action="store_true", help="Explicitly allow a configured remote provider to receive sensitive feedback")
+    ingest.add_argument("--retain-source-text", action="store_true", default=None, help="Retain source text; sensitive input is minimized by default")
     ingest.add_argument("--confirm", action="store_true", help="Confirm the rule after parsing and confidence checks")
+    ingest.add_argument("--confirmed-by", help="Identity of the human confirming the proposed rule")
     ingest.set_defaults(func=_cmd_ingest)
 
     rules = commands.add_parser("rules", help="List, update, confirm, or deactivate rules")
-    rules.add_argument("action", nargs="?", choices=("list", "update", "confirm", "deactivate"), default="list")
+    rules.add_argument("action", nargs="?", choices=("list", "update", "confirm", "deactivate", "revoke", "delete"), default="list")
     rules.add_argument("--rule-id", help="Existing rule ID for update/confirm/deactivate")
+    rules.add_argument("--confirmed-by", help="Identity of the human confirming the proposed rule")
     rules.add_argument("--reviewer")
     rules.add_argument("--project")
+    rules.add_argument("--preference-owner")
     rules.add_argument("--all", action="store_true", help="Include inactive rules")
     rules.add_argument("--directive")
     rules.add_argument("--scope-json")
@@ -238,11 +289,18 @@ def build_parser() -> argparse.ArgumentParser:
     rules.add_argument("--confidence", type=float)
     rules.add_argument("--conflict-key")
     rules.add_argument("--effect")
+    rules.add_argument("--valid-from")
+    rules.add_argument("--valid-until")
+    rules.add_argument("--attribution", choices=("direct", "third_party", "ai_inference"))
     rules.set_defaults(func=_cmd_rules)
 
     check = commands.add_parser("check", help="Retrieve applicable rules and check a generated output")
     check.add_argument("--file", required=True, help="Text file containing the output to review")
-    check.add_argument("--task-context", default="{}", help="JSON task context: project, audience, task_type, objective, tags")
+    check.add_argument(
+        "--task-context",
+        default="{}",
+        help="JSON task context: project, audience, task_type, objective, interaction_context, preference_owner, as_of, tags, current_overrides",
+    )
     check.add_argument("--reviewer", help="Limit rule selection to this reviewer; omit to detect cross-reviewer conflicts")
     check.set_defaults(func=_cmd_check)
 

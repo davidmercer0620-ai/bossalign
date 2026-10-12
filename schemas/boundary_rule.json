@@ -18,7 +18,14 @@
     "status",
     "created_at",
     "updated_at",
-    "version"
+    "version",
+    "preference_owner",
+    "attribution",
+    "communicative_intent",
+    "rule_candidate",
+    "valid_from",
+    "valid_until",
+    "sensitive"
   ],
   "properties": {
     "rule_id": {"type": "string"},
@@ -39,6 +46,7 @@
         "audience": {"type": ["string", "array"]},
         "objective": {"type": ["string", "array"]},
         "task_id": {"type": ["string", "array"]},
+        "interaction_context": {"type": ["string", "array"]},
         "tags": {"type": ["string", "array"]}
       },
       "additionalProperties": false
@@ -54,6 +62,7 @@
           "audience": {"type": ["string", "array"]},
           "objective": {"type": ["string", "array"]},
           "task_id": {"type": ["string", "array"]},
+          "interaction_context": {"type": ["string", "array"]},
           "tags": {"type": ["string", "array"]}
         },
         "minProperties": 1,
@@ -69,6 +78,13 @@
     "effect": {"type": "string"},
     "deterministic_checks": {"type": "array", "items": {"type": "string"}},
     "confirmed_by": {"type": ["string", "null"]},
+    "preference_owner": {"type": ["string", "null"]},
+    "attribution": {"type": "string", "enum": ["direct", "third_party", "ai_inference"]},
+    "communicative_intent": {"type": "string"},
+    "rule_candidate": {"type": "boolean"},
+    "valid_from": {"type": ["string", "null"], "format": "date-time"},
+    "valid_until": {"type": ["string", "null"], "format": "date-time"},
+    "sensitive": {"type": "boolean"},
     "applicable_topics": {"type": "array", "items": {"type": "string"}},
     "applicable_objectives": {"type": "array", "items": {"type": "string"}},
     "prohibited_topics": {"type": "array", "items": {"type": "string"}},
