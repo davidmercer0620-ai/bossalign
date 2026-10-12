@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bossalign"
+version = "0.1.0"
+description = "BossAlign (蛔虫引擎): The 'Boss-in-the-Loop' Alignment Framework for Multi-Stakeholder Approvals."
+readme = "README.md"
+authors = [{ name = "BossAlign Team" }]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2.0.0",
+    "click>=8.0.0",
+    "rich>=13.0.0"
+]
+
+[project.scripts]
+bossalign = "bossalign.cli:main"
+roundworm = "bossalign.cli:main"

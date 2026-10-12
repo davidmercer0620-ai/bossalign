@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BoundaryRule",
+  "description": "Standard schema for boundary rules with negative counter-examples in BossAlign.",
+  "type": "object",
+  "required": ["rule_id", "source_event_ids", "reviewer", "directive", "applicable_scope", "negative_boundary"],
+  "properties": {
+    "rule_id": {
+      "type": "string",
+      "description": "Unique identifier, e.g., RULE-SCOPE-001"
+    },
+    "source_event_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Evidence IDs supporting this rule"
+    },
+    "reviewer": {
+      "type": "string",
+      "description": "The reviewer whose preference is captured"
+    },
+    "directive": {
+      "type": "string",
+      "description": "What to do or avoid"
+    },
+    "applicable_scope": {
+      "type": "object",
+      "properties": {
+        "topics": { "type": "array", "items": { "type": "string" } },
+        "audiences": { "type": "array", "items": { "type": "string" } },
+        "objectives": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["topics", "objectives"]
+    },
+    "negative_boundary": {
+      "type": "object",
+      "properties": {
+        "prohibited_topics": { "type": "array", "items": { "type": "string" } },
+        "prohibited_conditions": { "type": "array", "items": { "type": "string" } },
+        "counter_example_rationale": { "type": "string" }
+      },
+      "required": ["prohibited_topics", "counter_example_rationale"]
+    }
+  }
+}

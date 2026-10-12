@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FeedbackEvent",
+  "description": "Standard schema for capturing stakeholder feedback in BossAlign.",
+  "type": "object",
+  "required": ["event_id", "timestamp", "reviewer", "evidence_level", "raw_content", "extracted_intent"],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Unique identifier, e.g., EVT-202610-001"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewer": {
+      "type": "string",
+      "description": "Identifier of the stakeholder, e.g., Boss_Victor"
+    },
+    "evidence_level": {
+      "type": "string",
+      "enum": ["L1_DIRECT_QUOTE", "L2_FACTUAL_GROUNDING", "L3_TRANSFERRED_NOTE", "L4_AI_SPECULATION"],
+      "description": "Level in the Evidence Ladder"
+    },
+    "topic_context": {
+      "type": "string",
+      "description": "Document or project version being reviewed"
+    },
+    "raw_content": {
+      "type": "string",
+      "description": "Verbatim audio transcript or text feedback"
+    },
+    "extracted_intent": {
+      "type": "string",
+      "description": "Core intent distilled after de-noising"
+    },
+    "derived_rule_id": {
+      "type": "string",
+      "description": "ID of the boundary rule generated from this event"
+    }
+  }
+}
