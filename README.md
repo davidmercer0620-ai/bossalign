@@ -8,7 +8,8 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Status: Production-Ready](https://img.shields.io/badge/Status-Battle--Tested-orange.svg)](#)
 
-[English Version (README_EN.md)](README_EN.md) | [核心白皮书 (docs/)](docs/) | [虚构案例 Demo](examples/skypulse_drone/)
+### 🌐 Language / 语言: [English 🇺🇸](README_EN.md) | **[简体中文 🇨🇳](README.md)**
+[核心白皮书 (docs/)](docs/) | [虚构案例 Demo](examples/skypulse_drone/)
 
 ---
 

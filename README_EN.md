@@ -8,7 +8,8 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Status: Battle-Tested](https://img.shields.io/badge/Status-Battle--Tested-orange.svg)](#)
 
-[中文说明文档 (README.md)](README.md) | [Architecture Docs (docs/)](docs/) | [Mock Showcase](examples/skypulse_drone/)
+### 🌐 Language / 语言: **[English 🇺🇸](README_EN.md)** | [简体中文 🇨🇳](README.md)
+[Architecture Docs (docs/)](docs/) | [Mock Showcase](examples/skypulse_drone/)
 
 ---
 
@@ -107,6 +108,19 @@ bossalign ingest \
   --context "SkyPulse_Drone_Episode02"
 ```
 
+The system automatically parses the raw feedback into a standardized `feedback_event` and synthesizes the negative boundary:
+```json
+{
+  "event_id": "EVT-202610-001",
+  "reviewer": "Boss_Victor",
+  "intent": "Replace abstract craftsmanship claims with empirical gale-force wind tests and flight endurance.",
+  "boundary": {
+    "applicable_to": ["Performance Showcase", "Hardcore Benchmark Testing"],
+    "counter_example": "Strictly prohibited from stripping brand ethos in emotional brand manifesto pieces."
+  }
+}
+```
+
 ### 2. Generate Draft & Run Pre-Flight Sandbox
 ```bash
 bossalign generate \
@@ -123,6 +137,25 @@ Terminal Output:
 [PASS] Pacing check: Word density aligned with Boss_Victor preference.
 [CLEAN] Clean-room sanitization complete! Internal metadata stripped.
 Deliverable ready: output/script_v1.md
+```
+
+---
+
+## 📂 Project Structure
+
+```text
+bossalign/
+├── bossalign/               # Python core engine code
+│   ├── parser.py            # Emotion de-noiser & intent extraction
+│   ├── boundary.py          # Negative boundary guard & regression check
+│   ├── sandbox.py           # Pre-flight shadow boss review simulation
+│   └── sanitizer.py         # Clean-room deliverable sanitizer
+├── docs/                    # Architectural Whitepapers
+│   ├── 01_boundary_guard_en.md # On Negative Boundaries: Ending AI Over-fitting
+│   ├── 02_evidence_ladder_en.md# The Evidence Ladder: Isolating Quotes, Grounding & Speculation
+│   └── 03_clean_room_en.md     # Clean-Room Delivery: The Ultimate Workplace Survival Law
+└── examples/                # Benchmark Synthetic Showcase
+    └── skypulse_drone/      # SkyPulse Drone Campaign (dual_review_rules_en.md, output_script_en.md)
 ```
 
 ---
