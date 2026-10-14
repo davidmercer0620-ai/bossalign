@@ -136,17 +136,23 @@ bossalign --db ./memory.sqlite3 ingest \
 
 # 查看后人工确认已有规则
 bossalign --db ./memory.sqlite3 rules confirm --rule-id RULE_ID
-bossalign --db ./memory.sqlite3 rules --reviewer reviewer-1
+bossalign --db ./memory.sqlite3 rules list --reviewer reviewer-1
 bossalign --db ./memory.sqlite3 rules update --rule-id RULE_ID --directive "Keep the measurement context"
 bossalign --db ./memory.sqlite3 rules deactivate --rule-id RULE_ID
+bossalign --db ./memory.sqlite3 rules revoke --rule-id RULE_ID --reason "更新规范"
+bossalign --db ./memory.sqlite3 rules reject --rule-id RULE_ID --reason "未核验推断"
+bossalign --db ./memory.sqlite3 rules supersede --rule-id OLD_ID --new-rule-id NEW_ID
 bossalign --db ./memory.sqlite3 rules delete --rule-id RULE_ID
 bossalign --db ./memory.sqlite3 check --file draft.md \
   --task-context '{"project":"sample-app","task_type":"consumer_copy","audience":"consumer"}' \
   --reviewer reviewer-1
+bossalign --db ./memory.sqlite3 export --preview
+bossalign --db ./memory.sqlite3 export --out export.json
+bossalign --db ./memory.sqlite3 replay --file steps.json
 bossalign --db ./memory.sqlite3 sanitize --file draft.md --out clean.md
 ```
 
-命令包括 `ingest`、`rules`、`check`、`demo`、`sanitize`。V0.2 没有 `generate` 命令。审核退出码：`0` 表示没有报告问题或没有适用规则，`1` 表示发现规则问题或模型建议人工复核，`2` 表示上下文不足或检查无法完成。
+命令包括 `ingest`、`rules`、`check`、`export`、`replay`、`demo`、`sanitize`。V0.2 没有 `generate` 命令。审核退出码：`0` 表示没有报告问题或没有适用规则，`1` 表示发现规则问题或模型建议人工复核，`2` 表示上下文不足或检查无法完成。
 
 录入敏感反馈时传入 `--sensitive --consent-to-store-sensitive`。只有明确允许配置好的远程 Provider 接收反馈时，才加 `--allow-external-processing`。默认不保留敏感反馈原文；确需保留时再加 `--retain-source-text`。
 
@@ -183,9 +189,23 @@ python benchmarks/run.py
 
 情感沟通案例单独由单元测试验证，不计入这组 benchmark 指标。
 
-## 架构与限制
+## 架构与数据隔离
 
-CLI、SDK、Demo 共用同一套 parser、SQLite store、boundary engine 和 checker。SQLite 是唯一运行时存储。净室工具只移除 BossAlign 标签，不是通用隐私扫描器或导出管线。
+```text
+人类反馈 -> 解析建议 -> SQLite 事件账本（可追溯、不可变日志、审计记录）
+                                  |
+               偏好生命周期：PROPOSED/DRAFT -> CONFIRMED
+                                  |
+任务上下文 -> 规则作用域 V2（多维约束匹配、显式反例排除、零错误泛化）
+                                  |
+               冲突消解器（多主体矛盾 / 前后矛盾 / 显式权限）
+                                  |
+事实核验接口（区分事实与主观偏好）+ 确定性短语审核 -> CheckReport
+                                  |
+         白名单安全状态导出（物理隔离原始私有数据，默认禁止外传）
+```
+
+CLI、SDK、Demo 共用同一套事件账本、生命周期管理、作用域引擎、冲突消解器与审核器。SQLite 为本地运行时存储。隐私安全依托于默认拒绝外传架构、白名单导出投影以及本地物理隔离；净室文本清洗工具仅作为格式辅助，不作为保密防御的核心手段。
 
 - 离线解析依赖有限的中英文线索，不具备完整语义解析能力。
 - 离线 Provider 无法可靠识别情感语境；应用或 Provider 提供的意图标签仍是待确认建议，须由偏好所属人确认。

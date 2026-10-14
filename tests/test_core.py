@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bossalign import BossAlign
+from bossalign import BossAlign, MemoryStore
 from bossalign.schema import BoundaryRule, RuleStatus, TaskContext
 
 
@@ -30,6 +30,9 @@ class TestCore(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
         self.tmp_path = Path(self.tempdir.name)
+
+    def tearDown(self):
+        MemoryStore.close_all()
 
     def test_unconfirmed_feedback_is_stored_but_not_applied(self):
         client = BossAlign(self.tmp_path / "memory.sqlite3")

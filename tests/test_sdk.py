@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bossalign import BossAlign
+from bossalign import BossAlign, MemoryStore
 from bossalign.schema import BoundaryRule, RuleStatus, TaskContext
 
 
@@ -32,6 +32,9 @@ class TestSDK(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
         self.tmp_path = Path(self.tempdir.name)
+
+    def tearDown(self):
+        MemoryStore.close_all()
 
     def test_check_reports_rule_evidence_and_never_claims_user_approval(self):
         client = BossAlign(self.tmp_path / "memory.sqlite3")

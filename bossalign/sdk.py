@@ -2,13 +2,17 @@
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 from .boundary import BoundaryEngine, MIN_ACTIVE_CONFIDENCE
+from .export import ExportManifest, ExportPolicy, PrivacyExporter
+from .lifecycle import PreferenceLifecycle
 from .parser import FeedbackParser
 from .providers import DeterministicProvider, FeedbackProvider
+from .replay import ReplayEngine, ReplayReport, ReplayStep
+from .retrieval import EvidenceItem, EvidenceQuery, EvidenceRetriever, InMemoryEvidenceRetriever, RetrievalResult
 from .sandbox import RuleChecker
-from .schema import BoundaryRule, CheckReport, RuleSelection, RuleStatus, TaskContext, utc_now
+from .schema import BoundaryRule, CheckReport, FeedbackEvent, RuleSelection, RuleStatus, TaskContext, utc_now
 from .store import MemoryStore
 
 
@@ -19,7 +23,12 @@ class BossAlign:
     provider instance to use an OpenAI-compatible service.
     """
 
-    def __init__(self, db_path: Optional[Union[str, Path]] = None, provider: Optional[FeedbackProvider] = None):
+    def __init__(
+        self,
+        db_path: Optional[Union[str, Path]] = None,
+        provider: Optional[FeedbackProvider] = None,
+        retriever: Optional[EvidenceRetriever] = None,
+    ):
         if db_path is None:
             db_path = Path.home() / ".bossalign" / "memory.sqlite3"
         self.db_path = str(db_path)
@@ -27,6 +36,7 @@ class BossAlign:
         self.store = MemoryStore(self.db_path)
         self.parser = FeedbackParser(self.provider)
         self.checker = RuleChecker()
+        self.retriever = retriever or InMemoryEvidenceRetriever()
 
     def ingest(
         self,
@@ -82,28 +92,15 @@ class BossAlign:
             raise KeyError("Unknown rule: %s" % rule_id)
         if rule.status == RuleStatus.INACTIVE:
             raise ValueError("Inactive rules cannot be confirmed; update or re-ingest feedback first")
-        if not rule.rule_candidate:
-            raise ValueError("This feedback was classified as not eligible for a persistent rule")
-        if confirmed_by is None:
-            confirmed_by = rule.reviewer
-        owner_confirmation_required = (
-            rule.attribution != "direct"
-            or (rule.preference_owner is not None and rule.preference_owner != rule.reviewer)
-        )
-        if owner_confirmation_required and (not rule.preference_owner or confirmed_by != rule.preference_owner):
-            raise ValueError("Only the preference owner can confirm third-party, inferred, or other-owner feedback")
-        if rule.confidence < MIN_ACTIVE_CONFIDENCE:
-            raise ValueError(
-                "Rule confidence %.2f is below the %.2f confirmation threshold; review and update it first"
-                % (rule.confidence, MIN_ACTIVE_CONFIDENCE)
-            )
-        updated = replace(
-            rule,
-            status=RuleStatus.CONFIRMED,
-            confirmed_by=confirmed_by,
-            version=rule.version + 1,
-            updated_at=utc_now(),
-        )
+        updated = PreferenceLifecycle.confirm(rule, confirmed_by=confirmed_by)
+        self.store.update_rule(updated)
+        return updated
+
+    def reject_rule(self, rule_id: str, rejected_by: str, reason: str = "") -> BoundaryRule:
+        rule = self.store.get_rule(rule_id)
+        if rule is None:
+            raise KeyError("Unknown rule: %s" % rule_id)
+        updated = PreferenceLifecycle.reject(rule, rejected_by=rejected_by, reason=reason)
         self.store.update_rule(updated)
         return updated
 
@@ -121,6 +118,8 @@ class BossAlign:
             "deterministic_checks", "counter_example_rationale", "applicable_topics",
             "applicable_objectives", "prohibited_topics", "preference_owner", "attribution",
             "communicative_intent", "rule_candidate", "valid_from", "valid_until", "sensitive",
+            "domain", "priority", "rejection_reason", "superseded_by", "revocation_reason",
+            "evidence_type", "content_type", "source_event_ids",
         }
         unknown = set(changes) - allowed
         if unknown:
@@ -129,7 +128,7 @@ class BossAlign:
         if current is None:
             raise KeyError("Unknown rule: %s" % rule_id)
         changed_content = any(getattr(current, key) != value for key, value in changes.items())
-        reset_confirmation = current.status in (RuleStatus.CONFIRMED, RuleStatus.INACTIVE) and changed_content
+        reset_confirmation = current.status in (RuleStatus.CONFIRMED, RuleStatus.INACTIVE, RuleStatus.REVOKED) and changed_content
         updated = replace(
             current,
             **changes,
@@ -154,9 +153,54 @@ class BossAlign:
         self.store.update_rule(updated)
         return updated
 
-    def revoke_rule(self, rule_id: str) -> BoundaryRule:
+    def revoke_rule(self, rule_id: str, revoked_by: str = "reviewer", reason: str = "") -> BoundaryRule:
         """Revoke a confirmed preference while keeping its audit history."""
-        return self.deactivate_rule(rule_id)
+        rule = self.store.get_rule(rule_id)
+        if rule is None:
+            raise KeyError("Unknown rule: %s" % rule_id)
+        updated = PreferenceLifecycle.revoke(rule, revoked_by=revoked_by, reason=reason)
+        self.store.update_rule(updated)
+        return updated
+
+    def supersede_rule(self, old_rule_id: str, new_rule_id: str, actor: str = "system", reason: str = "") -> BoundaryRule:
+        """Mark an older preference as superseded by a newer confirmed rule."""
+        old_rule = self.store.get_rule(old_rule_id)
+        if old_rule is None:
+            raise KeyError("Unknown rule: %s" % old_rule_id)
+        updated = PreferenceLifecycle.supersede(old_rule, new_rule_id, superseded_by_actor=actor, reason=reason)
+        self.store.update_rule(updated)
+        return updated
+
+    def get_evidence_chain(self, rule_id: str) -> List[FeedbackEvent]:
+        """Trace a rule back through its source events and provenance."""
+        return self.store.get_rule_evidence_chain(rule_id)
+
+    def export_rules(
+        self,
+        policy: Optional[ExportPolicy] = None,
+        rules: Optional[Sequence[BoundaryRule]] = None,
+    ) -> Dict[str, Any]:
+        """Safely export whitelisted rule fields with explicit opt-in policy."""
+        target_rules = self.rules() if rules is None else list(rules)
+        active_policy = policy if policy is not None else ExportPolicy(allow_export=True)
+        return PrivacyExporter.export(target_rules, active_policy)
+
+    def preview_export(
+        self,
+        policy: Optional[ExportPolicy] = None,
+        rules: Optional[Sequence[BoundaryRule]] = None,
+    ) -> ExportManifest:
+        """Preview sanitized manifest before exporting rules."""
+        target_rules = self.rules() if rules is None else list(rules)
+        return PrivacyExporter.preview(target_rules, policy)
+
+    def replay(self, steps: Sequence[ReplayStep]) -> ReplayReport:
+        """Replay chronological events and verify regression safety."""
+        return ReplayEngine(self.db_path).run(steps)
+
+    def verify_claim(self, claim: str, domain: Optional[str] = None):
+        """Verify factual claim using configured pluggable evidence retriever."""
+        return self.retriever.verify_claim(claim, domain=domain)
 
     def delete_rule(self, rule_id: str) -> bool:
         """Permanently remove a rule, its versions, and its source feedback."""

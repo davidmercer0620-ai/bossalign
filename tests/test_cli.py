@@ -7,7 +7,7 @@ from io import StringIO
 from pathlib import Path
 
 from bossalign.cli import main
-from bossalign import BossAlign
+from bossalign import BossAlign, MemoryStore
 
 
 class TestCLI(unittest.TestCase):
@@ -15,6 +15,9 @@ class TestCLI(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
         self.tmp_path = Path(self.tempdir.name)
+
+    def tearDown(self):
+        MemoryStore.close_all()
 
     def run_cli(self, args):
         output = StringIO()
@@ -159,3 +162,45 @@ class TestCLI(unittest.TestCase):
         ])
         self.assertEqual(status, 0)
         self.assertIn('"status": "confirmed"', confirmed)
+
+    def test_cli_export_and_preview(self):
+        database = self.tmp_path / "export_cli.sqlite3"
+        with BossAlign(database) as client:
+            client.ingest("Never disclose secret tokens.", reviewer="actor_A", confirm=True)
+
+        # Test preview
+        status, preview = self.run_cli(["--db", str(database), "export", "--preview"])
+        self.assertEqual(status, 0)
+        self.assertIn("whitelisted_fields", preview)
+        self.assertIn("redacted_fields", preview)
+
+        # Test export to file
+        out_file = self.tmp_path / "exported.json"
+        status, export_out = self.run_cli(["--db", str(database), "export", "--out", str(out_file)])
+        self.assertEqual(status, 0)
+        self.assertTrue(out_file.exists())
+        self.assertIn("Exported 1 rules", export_out)
+
+    def test_cli_replay_command(self):
+        database = self.tmp_path / "replay_cli.sqlite3"
+        steps_file = self.tmp_path / "steps.json"
+        steps_file.write_text(
+            json.dumps([
+                {
+                    "step_id": "s1",
+                    "action": "ingest",
+                    "payload": {
+                        "feedback": "Never use guaranteed claims.",
+                        "reviewer": "actor_A",
+                        "confirm": True,
+                        "context": {"applicable_scope": {"project": "p1"}},
+                    },
+                    "expected": {"status": "confirmed"},
+                }
+            ]),
+            encoding="utf-8",
+        )
+        status, output = self.run_cli(["--db", str(database), "replay", "--file", str(steps_file)])
+        self.assertEqual(status, 0)
+        self.assertIn("Replay PASSED", output)
+

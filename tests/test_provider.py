@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from bossalign import BossAlign
+from bossalign import BossAlign, MemoryStore
 from bossalign.providers import OpenAICompatibleProvider
 from bossalign.schema import RuleStatus, TaskContext
 
@@ -32,6 +32,9 @@ class TestProvider(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
         self.tmp_path = Path(self.tempdir.name)
+
+    def tearDown(self):
+        MemoryStore.close_all()
 
     def test_ai_inference_stays_draft_and_cannot_override_confirmed_instruction(self):
         client = BossAlign(self.tmp_path / "memory.sqlite3")

@@ -9,7 +9,9 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import List, Optional
 
+from .export import ExportPolicy
 from .providers import provider_from_env
+from .replay import ReplayStep
 from .sanitizer import sanitize_deliverable
 from .schema import BoundaryRule, RuleStatus, TaskContext
 from .sdk import BossAlign
@@ -122,16 +124,24 @@ def _cmd_rules(args) -> int:
                 return 2
             print(json.dumps({"rule_id": args.rule_id, "deleted": True}, ensure_ascii=False))
             return 0
-        if args.action in ("confirm", "deactivate", "revoke"):
+        if args.action in ("confirm", "deactivate", "revoke", "reject", "supersede"):
             if not args.rule_id:
                 print("rules %s requires --rule-id" % args.action, file=sys.stderr)
                 return 2
             try:
-                rule = (
-                    client.confirm_rule(args.rule_id, confirmed_by=args.confirmed_by)
-                    if args.action == "confirm"
-                    else client.revoke_rule(args.rule_id)
-                )
+                if args.action == "confirm":
+                    rule = client.confirm_rule(args.rule_id, confirmed_by=args.confirmed_by)
+                elif args.action == "deactivate":
+                    rule = client.deactivate_rule(args.rule_id)
+                elif args.action == "reject":
+                    rule = client.reject_rule(args.rule_id, rejected_by=args.confirmed_by or "reviewer", reason=getattr(args, "reason", "") or "")
+                elif args.action == "supersede":
+                    if not getattr(args, "new_rule_id", None):
+                        print("rules supersede requires --new-rule-id", file=sys.stderr)
+                        return 2
+                    rule = client.supersede_rule(args.rule_id, args.new_rule_id, actor=args.confirmed_by or "system", reason=getattr(args, "reason", "") or "")
+                else:
+                    rule = client.revoke_rule(args.rule_id)
             except (KeyError, ValueError) as error:
                 print("bossalign: %s" % error, file=sys.stderr)
                 return 2
@@ -245,6 +255,45 @@ def _cmd_demo(_args) -> int:
     return 0
 
 
+def _cmd_export(args) -> int:
+    with _new_client(args.db) as client:
+        if args.preview:
+            manifest = client.preview_export()
+            print(json.dumps(manifest.to_dict(), ensure_ascii=False, indent=2))
+            return 0
+        policy = ExportPolicy(allow_export=True)
+        bundle = client.export_rules(policy=policy)
+        result_json = json.dumps(bundle, ensure_ascii=False, indent=2)
+        if args.out:
+            Path(args.out).write_text(result_json, encoding="utf-8")
+            print("Exported %d rules to %s" % (bundle["count"], args.out))
+        else:
+            print(result_json)
+        return 0
+
+
+def _cmd_replay(args) -> int:
+    data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    steps = [
+        ReplayStep(
+            step_id=item["step_id"],
+            action=item["action"],
+            payload=item.get("payload", {}),
+            expected=item.get("expected"),
+        )
+        for item in data
+    ]
+    with _new_client(args.db) as client:
+        report = client.replay(steps)
+    print(report.summary)
+    for r in report.step_results:
+        status_str = "PASS" if r.passed else "FAIL"
+        print("  [%s] %s: %s" % (status_str, r.step_id, r.action))
+        for d in r.discrepancies:
+            print("    - %s" % d)
+    return 0 if report.passed else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bossalign",
@@ -275,8 +324,10 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.set_defaults(func=_cmd_ingest)
 
     rules = commands.add_parser("rules", help="List, update, confirm, or deactivate rules")
-    rules.add_argument("action", nargs="?", choices=("list", "update", "confirm", "deactivate", "revoke", "delete"), default="list")
+    rules.add_argument("action", nargs="?", choices=("list", "update", "confirm", "deactivate", "revoke", "reject", "supersede", "delete"), default="list")
     rules.add_argument("--rule-id", help="Existing rule ID for update/confirm/deactivate")
+    rules.add_argument("--new-rule-id", help="Target rule ID for supersede")
+    rules.add_argument("--reason", help="Explanation or justification for reject/revoke/supersede")
     rules.add_argument("--confirmed-by", help="Identity of the human confirming the proposed rule")
     rules.add_argument("--reviewer")
     rules.add_argument("--project")
@@ -311,6 +362,15 @@ def build_parser() -> argparse.ArgumentParser:
     sanitize.add_argument("--file", required=True)
     sanitize.add_argument("--out", required=True)
     sanitize.set_defaults(func=_cmd_sanitize)
+
+    export_cmd = commands.add_parser("export", help="Safely export whitelisted rules")
+    export_cmd.add_argument("--preview", action="store_true", help="Preview sanitized export manifest")
+    export_cmd.add_argument("--out", help="Write export output to file")
+    export_cmd.set_defaults(func=_cmd_export)
+
+    replay_cmd = commands.add_parser("replay", help="Replay chronological feedback events")
+    replay_cmd.add_argument("--file", required=True, help="JSON file containing replay steps")
+    replay_cmd.set_defaults(func=_cmd_replay)
     return parser
 
 

@@ -4,13 +4,14 @@ import re
 from datetime import datetime, timezone
 from typing import List, Mapping, Optional, Sequence
 
+from .resolver import ConflictResolver
 from .schema import BoundaryRule, RuleConflict, RuleDecision, RuleSelection, RuleStatus, TaskContext
 
 
 MIN_ACTIVE_CONFIDENCE = 0.6
 _SCOPE_KEYS = (
     "project", "task_type", "topic", "audience", "objective", "task_id",
-    "interaction_context", "tags",
+    "interaction_context", "domain", "scenario", "task_intent", "tags",
 )
 
 
@@ -82,8 +83,17 @@ class BoundaryEngine:
                     RuleDecision(rule.rule_id, "insufficient context: stored rule does not identify its preference owner")
                 )
                 continue
-            if rule.status == RuleStatus.INACTIVE:
+            if rule.status in (RuleStatus.INACTIVE, RuleStatus.REVOKED):
                 selection.excluded_rules.append(RuleDecision(rule.rule_id, "rule is inactive"))
+                continue
+            if rule.status == RuleStatus.REJECTED:
+                selection.excluded_rules.append(RuleDecision(rule.rule_id, "rule was explicitly rejected"))
+                continue
+            if rule.status == RuleStatus.SUPERSEDED:
+                selection.excluded_rules.append(RuleDecision(rule.rule_id, "rule has been superseded"))
+                continue
+            if rule.status == RuleStatus.EXPIRED:
+                selection.excluded_rules.append(RuleDecision(rule.rule_id, "rule has expired"))
                 continue
             if not rule.rule_candidate:
                 selection.excluded_rules.append(
@@ -198,43 +208,25 @@ class BoundaryEngine:
             selection.active_reasons.append(RuleDecision(rule.rule_id, reason))
 
         selection.active_rules = accepted
-        conflicting_ids = set()
-        for index, left in enumerate(accepted):
-            for right in accepted[index + 1 :]:
-                if left.conflict_key and left.conflict_key == right.conflict_key and left.effect and right.effect and left.effect != right.effect:
-                    conflicting_ids.update((left.rule_id, right.rule_id))
-                    selection.conflicts.append(
-                        RuleConflict(
-                            left.rule_id,
-                            right.rule_id,
-                            left.conflict_key,
-                            left.effect,
-                            right.effect,
-                            explanation="Confirmed rules share a conflict key but prescribe different effects; neither is applied automatically.",
-                        )
-                    )
+        resolver = ConflictResolver(authority_hierarchy=task.authority_hierarchy)
+        conflicts = resolver.detect_conflicts(accepted, task)
+        selection.conflicts = conflicts
 
-        for rule in accepted:
-            for current in task.current_overrides:
-                if (
-                    rule.conflict_key
-                    and current.get("conflict_key") == rule.conflict_key
-                    and current.get("effect")
-                    and rule.effect
-                    and current.get("effect") != rule.effect
-                ):
-                    conflicting_ids.add(rule.rule_id)
-                    selection.conflicts.append(
-                        RuleConflict(
-                            rule.rule_id,
-                            "current_task",
-                            rule.conflict_key,
-                            rule.effect,
-                            str(current.get("effect")),
-                            kind="current_instruction",
-                            explanation="A structured current-task instruction conflicts with this stored rule; current instruction takes precedence.",
-                        )
-                    )
+        conflicting_ids = set()
+        for c in conflicts:
+            if c.right_rule_id == "current_task":
+                conflicting_ids.add(c.left_rule_id)
+            else:
+                has_single_clear_resolution = False
+                for opt in c.resolution_options:
+                    if opt.recommended and opt.applied_rule_id:
+                        loser_id = c.right_rule_id if opt.applied_rule_id == c.left_rule_id else c.left_rule_id
+                        conflicting_ids.add(loser_id)
+                        has_single_clear_resolution = True
+                        break
+                if not has_single_clear_resolution:
+                    conflicting_ids.add(c.left_rule_id)
+                    conflicting_ids.add(c.right_rule_id)
 
         selection.effective_rules = [rule for rule in accepted if rule.rule_id not in conflicting_ids]
         return selection

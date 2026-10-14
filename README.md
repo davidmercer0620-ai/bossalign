@@ -148,17 +148,23 @@ bossalign --db ./memory.sqlite3 ingest \
 # Confirm only after reviewing the stored proposal
 bossalign --db ./memory.sqlite3 rules confirm --rule-id RULE_ID
 
-bossalign --db ./memory.sqlite3 rules --reviewer reviewer-1
+bossalign --db ./memory.sqlite3 rules list --reviewer reviewer-1
 bossalign --db ./memory.sqlite3 rules update --rule-id RULE_ID --directive "Keep the measurement context"
 bossalign --db ./memory.sqlite3 rules deactivate --rule-id RULE_ID
+bossalign --db ./memory.sqlite3 rules revoke --rule-id RULE_ID --reason "Updated brand guidelines"
+bossalign --db ./memory.sqlite3 rules reject --rule-id RULE_ID --reason "Unverified hypothesis"
+bossalign --db ./memory.sqlite3 rules supersede --rule-id OLD_ID --new-rule-id NEW_ID
 bossalign --db ./memory.sqlite3 rules delete --rule-id RULE_ID
 bossalign --db ./memory.sqlite3 check --file draft.md \
   --task-context '{"project":"sample-app","task_type":"consumer_copy","audience":"consumer"}' \
   --reviewer reviewer-1
+bossalign --db ./memory.sqlite3 export --preview
+bossalign --db ./memory.sqlite3 export --out export.json
+bossalign --db ./memory.sqlite3 replay --file steps.json
 bossalign --db ./memory.sqlite3 sanitize --file draft.md --out clean.md
 ```
 
-Commands: `ingest`, `rules`, `check`, `demo`, and `sanitize`. There is no `generate` command in V0.2. Check exit codes are `0` for no reported issue/no applicable rule, `1` for a reported violation or model finding requiring review, and `2` when evaluation is uncertain or cannot run.
+Commands: `ingest`, `rules`, `check`, `export`, `replay`, `demo`, and `sanitize`. There is no `generate` command in V0.2. Check exit codes are `0` for no reported issue/no applicable rule, `1` for a reported violation or model finding requiring review, and `2` when evaluation is uncertain or cannot run.
 
 For sensitive CLI ingestion, pass `--sensitive --consent-to-store-sensitive`. Use `--allow-external-processing` only when you explicitly authorize a configured remote provider to receive the feedback. Source text is not retained for sensitive feedback unless `--retain-source-text` is also supplied.
 
@@ -198,18 +204,20 @@ The separate interpersonal communication fixture is exercised by unit tests; it 
 ## Architecture
 
 ```text
-Feedback -> provider proposal -> SQLite event + draft rule
-                                   |
-                         human confirmation
-                                   |
-Task context -> exact scope + negative-boundary evaluation
-                                   |
-                   conflict/uncertainty report
-                                   |
-Output -> configured phrase checks + optional LLM findings
+Feedback -> Parser Proposal -> SQLite Event Store (Audit Log + Provenance)
+                                       |
+                   Preference Lifecycle: PROPOSED -> CONFIRMED
+                                       |
+Task Context -> Scope Engine V2 (Multi-dimensional constraints + Exclusions)
+                                       |
+                   Conflict Resolver (Multi-actor / Temporal / Authority)
+                                       |
+Grounded Facts (Evidence Retriever) + Configured Checks -> CheckReport
+                                       |
+              Safe State Export (Strict Whitelist Projection)
 ```
 
-The SDK, CLI, and demo share the same parser, store, boundary engine, and checker. SQLite is the only runtime storage. The existing clean-room helper remains a small tag sanitizer; it is not a general privacy scanner or export pipeline.
+The SDK, CLI, and demo share the same event store, lifecycle engine, boundary engine, conflict resolver, and checker. SQLite is the local runtime storage. Data privacy is enforced by default-deny architecture, field-whitelisted exports, and local physical isolation. The presentation sanitizer is strictly a tag stripping utility.
 
 ## Current limits
 

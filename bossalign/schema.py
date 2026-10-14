@@ -17,10 +17,32 @@ class EvidenceLevel(str, Enum):
     L4_AI_SPECULATION = "L4_AI_SPECULATION"
 
 
+class EvidenceType(str, Enum):
+    """Domain-agnostic classification of evidence reliability."""
+
+    DIRECT_EXPLICIT = "direct_explicit"        # Explicit direct statement by subject
+    VERIFIED_FACT = "verified_fact"            # Verified objective fact
+    THIRD_PARTY_REPORT = "third_party_report"  # Transferred/relayed statement
+    AI_INFERENCE = "ai_inference"              # Inferred by agent/model
+    UNKNOWN = "unknown"                        # Insufficient evidence
+
+
+class ContentType(str, Enum):
+    """Distinguish subjective preferences from objective facts."""
+
+    PREFERENCE = "preference"  # Subjective preference or taste
+    FACT = "fact"              # Verifiable objective truth
+
+
 class RuleStatus(str, Enum):
-    DRAFT = "draft"
-    CONFIRMED = "confirmed"
-    INACTIVE = "inactive"
+    PROPOSED = "proposed"      # Initial proposal (alias for draft)
+    DRAFT = "draft"            # Proposed draft, never activated automatically
+    CONFIRMED = "confirmed"    # Confirmed by authorized owner/reviewer
+    REJECTED = "rejected"      # Explicitly rejected by owner/reviewer
+    SUPERSEDED = "superseded"  # Replaced by newer confirmed rule
+    REVOKED = "revoked"        # Revoked while keeping audit history
+    EXPIRED = "expired"        # Expired due to time window
+    INACTIVE = "inactive"      # Legacy deactivated status
 
 
 class FeedbackKind(str, Enum):
@@ -28,6 +50,7 @@ class FeedbackKind(str, Enum):
     USER_PREFERENCE = "user_preference"
     AI_INFERENCE = "ai_inference"
     HYPOTHESIS = "hypothesis"
+    OBJECTIVE_FACT = "objective_fact"
 
 
 class FeedbackAttribution(str, Enum):
@@ -58,6 +81,14 @@ class FeedbackEvent:
     communicative_intent: str = "unspecified"
     rule_candidate: bool = True
     sensitive: bool = False
+    # V0.2 governance & provenance extensions
+    recorded_at: str = field(default_factory=utc_now)
+    parent_event_id: Optional[str] = None
+    linked_event_ids: List[str] = field(default_factory=list)
+    supersedes_event_id: Optional[str] = None
+    evidence_type: str = EvidenceType.DIRECT_EXPLICIT.value
+    content_type: str = ContentType.PREFERENCE.value
+    status: str = "recorded"
 
     def to_dict(self) -> Dict[str, Any]:
         result = asdict(self)
@@ -68,7 +99,9 @@ class FeedbackEvent:
     def from_dict(cls, value: Mapping[str, Any]) -> "FeedbackEvent":
         data = dict(value)
         data["evidence_level"] = EvidenceLevel(data.get("evidence_level", EvidenceLevel.L1_DIRECT_QUOTE.value))
-        return cls(**data)
+        data["linked_event_ids"] = list(data.get("linked_event_ids") or [])
+        valid_fields = {k for k in cls.__dataclass_fields__}
+        return cls(**{k: v for k, v in data.items() if k in valid_fields})
 
 
 @dataclass
@@ -106,6 +139,14 @@ class BoundaryRule:
     valid_from: Optional[str] = None
     valid_until: Optional[str] = None
     sensitive: bool = False
+    # V0.2 lifecycle, evidence & governance extensions
+    rejection_reason: Optional[str] = None
+    superseded_by: Optional[str] = None
+    revocation_reason: Optional[str] = None
+    evidence_type: str = EvidenceType.DIRECT_EXPLICIT.value
+    content_type: str = ContentType.PREFERENCE.value
+    priority: int = 100
+    domain: Optional[str] = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.status, RuleStatus):
@@ -124,8 +165,13 @@ class BoundaryRule:
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "BoundaryRule":
         data = dict(value)
-        data["status"] = RuleStatus(data.get("status", RuleStatus.DRAFT.value))
-        return cls(**data)
+        status_val = data.get("status", RuleStatus.DRAFT.value)
+        try:
+            data["status"] = RuleStatus(status_val)
+        except ValueError:
+            data["status"] = RuleStatus.DRAFT
+        valid_fields = {k for k in cls.__dataclass_fields__}
+        return cls(**{k: v for k, v in data.items() if k in valid_fields})
 
     def matches_task(self, topic: str, objective: str) -> bool:
         """Compatibility helper; new code should use BoundaryEngine for reasons."""
@@ -149,16 +195,23 @@ class TaskContext:
     as_of: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     current_overrides: List[Dict[str, str]] = field(default_factory=list)
+    # V0.2 context extensions
+    domain: Optional[str] = None
+    scenario: Optional[str] = None
+    task_intent: Optional[str] = None
+    authority_hierarchy: List[str] = field(default_factory=list)
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "TaskContext":
         allowed = {
             "project", "task_type", "topic", "audience", "objective", "task_id",
             "interaction_context", "preference_owner", "as_of", "tags", "current_overrides",
+            "domain", "scenario", "task_intent", "authority_hierarchy",
         }
         data = {key: value[key] for key in allowed if key in value}
         data["tags"] = list(data.get("tags") or [])
         data["current_overrides"] = list(data.get("current_overrides") or [])
+        data["authority_hierarchy"] = list(data.get("authority_hierarchy") or [])
         return cls(**data)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -171,6 +224,23 @@ class RuleDecision:
     reason: str
 
 
+class ConflictType(str, Enum):
+    MULTI_ACTOR = "multi_actor"              # Disagreement between distinct actors
+    TEMPORAL = "temporal"                    # Changed mind over time by same actor
+    SCOPE_HIERARCHY = "scope_hierarchy"      # Global policy vs local exception
+    EVIDENCE_DISPARITY = "evidence_disparity"# Confirmed rule vs unconfirmed inference
+    CURRENT_OVERRIDE = "current_override"    # Current explicit boundary vs historical rule
+    REVIEWER_CONFLICT = "reviewer_conflict"  # Generic conflicting directives
+
+
+@dataclass
+class ConflictResolutionOption:
+    strategy: str      # Strategy identifier (e.g. override, keep_existing, split_scope)
+    description: str   # Human-readable explanation
+    recommended: bool = False
+    applied_rule_id: Optional[str] = None
+
+
 @dataclass
 class RuleConflict:
     left_rule_id: str
@@ -180,6 +250,8 @@ class RuleConflict:
     right_effect: str
     kind: str = "reviewer_conflict"
     explanation: str = ""
+    severity: str = "high"
+    resolution_options: List[ConflictResolutionOption] = field(default_factory=list)
 
 
 @dataclass

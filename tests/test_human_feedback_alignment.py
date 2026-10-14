@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bossalign import BossAlign
+from bossalign import BossAlign, MemoryStore
 from bossalign.schema import EvidenceLevel, RuleStatus, TaskContext
 
 
@@ -64,6 +64,9 @@ class TestHumanFeedbackAlignment(unittest.TestCase):
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
         self.db = Path(self.tempdir.name) / "memory.sqlite3"
+
+    def tearDown(self):
+        MemoryStore.close_all()
 
     def test_same_core_api_handles_code_workplace_and_personal_feedback(self):
         client = BossAlign(self.db)
@@ -294,7 +297,7 @@ class TestHumanFeedbackAlignment(unittest.TestCase):
         client = BossAlign(self.db)
         rule = client.ingest("Use concise replies.", reviewer="agent", confirm=True)
         revoked = client.revoke_rule(rule.rule_id)
-        self.assertEqual(revoked.status, RuleStatus.INACTIVE)
+        self.assertIn(revoked.status, (RuleStatus.REVOKED, RuleStatus.INACTIVE))
         revised = client.update_rule(rule.rule_id, directive="Ask before offering advice.")
         self.assertEqual(revised.status, RuleStatus.DRAFT)
         self.assertEqual(client.confirm_rule(rule.rule_id).status, RuleStatus.CONFIRMED)
