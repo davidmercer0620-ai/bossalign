@@ -1,0 +1,49 @@
+[
+  {
+    "id": "venting",
+    "feedback": "I need to vent about today; please just listen.",
+    "communicative_intent": "venting",
+    "rule_candidate": false,
+    "origin": "hypothesis",
+    "directive": "No persistent preference was stated.",
+    "scope": {"interaction_context": "personal_relationship"},
+    "preference_owner": "person-1"
+  },
+  {
+    "id": "advice-request",
+    "feedback": "Can you help me decide what to say?",
+    "communicative_intent": "advice_request",
+    "rule_candidate": false,
+    "origin": "hypothesis",
+    "directive": "The speaker requested advice; no persistent preference was stated.",
+    "scope": {"interaction_context": "personal_relationship"},
+    "preference_owner": "person-1"
+  },
+  {
+    "id": "temporary-space",
+    "feedback": "I need space tonight; please do not message me until tomorrow.",
+    "communicative_intent": "temporary_preference",
+    "rule_candidate": true,
+    "origin": "explicit_instruction",
+    "directive": "Do not message during the stated quiet period.",
+    "scope": {"interaction_context": "personal_relationship", "task_type": "messaging"},
+    "preference_owner": "person-1",
+    "valid_from": "2026-01-01T00:00:00+00:00",
+    "valid_until": "2099-01-01T00:00:00+00:00",
+    "conflict_key": "contact",
+    "effect": "no_contact"
+  },
+  {
+    "id": "boundary-change",
+    "feedback": "For non-urgent calls, ask before calling me; this does not apply to emergency calls.",
+    "communicative_intent": "boundary_update",
+    "rule_candidate": true,
+    "origin": "explicit_instruction",
+    "directive": "Ask before calling.",
+    "scope": {"interaction_context": "personal_relationship"},
+    "negative_boundaries": [{"task_type": "emergency_call"}],
+    "preference_owner": "person-1",
+    "conflict_key": "calling",
+    "effect": "ask_first"
+  }
+]

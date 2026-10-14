@@ -17,6 +17,8 @@ npm-debug.log*
 .venv/
 env/
 venv/
+*.sqlite3
+*.db
 
 # OS generated files
 .DS_Store

@@ -1,7 +1,68 @@
-"""
-BossAlign (蛔虫引擎 / Roundworm)
-A production-grade "Boss-in-the-Loop" Preference Alignment Framework.
-"""
+"""BossAlign: the human feedback alignment engine for AI agents."""
 
-__version__ = "0.1.0"
-__all__ = ["schema", "parser", "boundary", "sandbox", "sanitizer"]
+from .export import ExportManifest, ExportPolicy, PrivacyExporter
+from .lifecycle import PreferenceLifecycle
+from .replay import ReplayEngine, ReplayReport, ReplayStep
+from .resolver import ConflictResolver
+from .retrieval import (
+    EvidenceItem,
+    EvidenceQuery,
+    EvidenceRetriever,
+    InMemoryEvidenceRetriever,
+    RetrievalResult,
+    RetrievalStatus,
+)
+from .schema import (
+    BoundaryRule,
+    CheckReport,
+    ConflictResolutionOption,
+    ConflictType,
+    ContentType,
+    EvidenceLevel,
+    EvidenceType,
+    FeedbackAttribution,
+    FeedbackEvent,
+    FeedbackKind,
+    RuleConflict,
+    RuleDecision,
+    RuleSelection,
+    RuleStatus,
+    TaskContext,
+)
+from .sdk import BossAlign
+from .store import MemoryStore
+
+__version__ = "0.2.0"
+__all__ = [
+    "BossAlign",
+    "BoundaryRule",
+    "CheckReport",
+    "ConflictResolutionOption",
+    "ConflictResolver",
+    "ConflictType",
+    "ContentType",
+    "EvidenceItem",
+    "EvidenceLevel",
+    "EvidenceQuery",
+    "EvidenceRetriever",
+    "EvidenceType",
+    "ExportManifest",
+    "ExportPolicy",
+    "FeedbackAttribution",
+    "FeedbackEvent",
+    "FeedbackKind",
+    "InMemoryEvidenceRetriever",
+    "MemoryStore",
+    "PreferenceLifecycle",
+    "PrivacyExporter",
+    "ReplayEngine",
+    "ReplayReport",
+    "ReplayStep",
+    "RetrievalResult",
+    "RetrievalStatus",
+    "RuleConflict",
+    "RuleDecision",
+    "RuleSelection",
+    "RuleStatus",
+    "TaskContext",
+]

@@ -1,42 +1,46 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "FeedbackEvent",
-  "description": "Standard schema for capturing stakeholder feedback in BossAlign.",
+  "description": "A source-preserving feedback event used to propose a scoped BossAlign rule.",
   "type": "object",
-  "required": ["event_id", "timestamp", "reviewer", "evidence_level", "raw_content", "extracted_intent"],
+  "required": [
+    "event_id",
+    "timestamp",
+    "reviewer",
+    "evidence_level",
+    "topic_context",
+    "raw_content",
+    "extracted_intent",
+    "derived_rule_id",
+    "source",
+    "origin",
+    "confidence",
+    "attribution",
+    "preference_owner",
+    "communicative_intent",
+    "rule_candidate",
+    "sensitive"
+  ],
   "properties": {
-    "event_id": {
-      "type": "string",
-      "description": "Unique identifier, e.g., EVT-202610-001"
-    },
-    "timestamp": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "reviewer": {
-      "type": "string",
-      "description": "Identifier of the stakeholder, e.g., Boss_Victor"
-    },
+    "event_id": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "reviewer": {"type": "string", "minLength": 1},
     "evidence_level": {
       "type": "string",
-      "enum": ["L1_DIRECT_QUOTE", "L2_FACTUAL_GROUNDING", "L3_TRANSFERRED_NOTE", "L4_AI_SPECULATION"],
-      "description": "Level in the Evidence Ladder"
+      "enum": ["L1_DIRECT_QUOTE", "L2_FACTUAL_GROUNDING", "L3_TRANSFERRED_NOTE", "L4_AI_SPECULATION"]
     },
-    "topic_context": {
-      "type": "string",
-      "description": "Document or project version being reviewed"
-    },
-    "raw_content": {
-      "type": "string",
-      "description": "Verbatim audio transcript or text feedback"
-    },
-    "extracted_intent": {
-      "type": "string",
-      "description": "Core intent distilled after de-noising"
-    },
-    "derived_rule_id": {
-      "type": "string",
-      "description": "ID of the boundary rule generated from this event"
-    }
-  }
+    "topic_context": {"type": "string"},
+    "raw_content": {"type": "string"},
+    "extracted_intent": {"type": "string"},
+    "derived_rule_id": {"type": ["string", "null"]},
+    "source": {"type": "string"},
+    "origin": {"type": "string", "enum": ["explicit_instruction", "user_preference", "ai_inference", "hypothesis"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "attribution": {"type": "string", "enum": ["direct", "third_party", "ai_inference"]},
+    "preference_owner": {"type": ["string", "null"]},
+    "communicative_intent": {"type": "string"},
+    "rule_candidate": {"type": "boolean"},
+    "sensitive": {"type": "boolean"}
+  },
+  "additionalProperties": false
 }

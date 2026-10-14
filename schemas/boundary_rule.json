@@ -1,44 +1,94 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "BoundaryRule",
-  "description": "Standard schema for boundary rules with negative counter-examples in BossAlign.",
+  "description": "A source-linked BossAlign rule with explicit applicability and negative boundaries.",
   "type": "object",
-  "required": ["rule_id", "source_event_ids", "reviewer", "directive", "applicable_scope", "negative_boundary"],
+  "required": [
+    "rule_id",
+    "source_event_ids",
+    "reviewer",
+    "directive",
+    "original_feedback",
+    "source",
+    "evidence",
+    "origin",
+    "applicable_scope",
+    "negative_boundaries",
+    "confidence",
+    "status",
+    "created_at",
+    "updated_at",
+    "version",
+    "preference_owner",
+    "attribution",
+    "communicative_intent",
+    "rule_candidate",
+    "valid_from",
+    "valid_until",
+    "sensitive"
+  ],
   "properties": {
-    "rule_id": {
-      "type": "string",
-      "description": "Unique identifier, e.g., RULE-SCOPE-001"
-    },
-    "source_event_ids": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Evidence IDs supporting this rule"
-    },
-    "reviewer": {
-      "type": "string",
-      "description": "The reviewer whose preference is captured"
-    },
-    "directive": {
-      "type": "string",
-      "description": "What to do or avoid"
-    },
+    "rule_id": {"type": "string"},
+    "source_event_ids": {"type": "array", "items": {"type": "string"}},
+    "reviewer": {"type": "string", "minLength": 1},
+    "directive": {"type": "string", "minLength": 1},
+    "original_feedback": {"type": "string"},
+    "source": {"type": "string"},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "origin": {"type": "string", "enum": ["explicit_instruction", "user_preference", "ai_inference", "hypothesis"]},
     "applicable_scope": {
       "type": "object",
       "properties": {
-        "topics": { "type": "array", "items": { "type": "string" } },
-        "audiences": { "type": "array", "items": { "type": "string" } },
-        "objectives": { "type": "array", "items": { "type": "string" } }
+        "global": {"type": "boolean"},
+        "project": {"type": ["string", "array"]},
+        "task_type": {"type": ["string", "array"]},
+        "topic": {"type": ["string", "array"]},
+        "audience": {"type": ["string", "array"]},
+        "objective": {"type": ["string", "array"]},
+        "task_id": {"type": ["string", "array"]},
+        "interaction_context": {"type": ["string", "array"]},
+        "tags": {"type": ["string", "array"]}
       },
-      "required": ["topics", "objectives"]
+      "additionalProperties": false
     },
-    "negative_boundary": {
-      "type": "object",
-      "properties": {
-        "prohibited_topics": { "type": "array", "items": { "type": "string" } },
-        "prohibited_conditions": { "type": "array", "items": { "type": "string" } },
-        "counter_example_rationale": { "type": "string" }
-      },
-      "required": ["prohibited_topics", "counter_example_rationale"]
-    }
-  }
+    "negative_boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "project": {"type": ["string", "array"]},
+          "task_type": {"type": ["string", "array"]},
+          "topic": {"type": ["string", "array"]},
+          "audience": {"type": ["string", "array"]},
+          "objective": {"type": ["string", "array"]},
+          "task_id": {"type": ["string", "array"]},
+          "interaction_context": {"type": ["string", "array"]},
+          "tags": {"type": ["string", "array"]}
+        },
+        "minProperties": 1,
+        "additionalProperties": false
+      }
+    },
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "status": {"type": "string", "enum": ["draft", "confirmed", "inactive"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "version": {"type": "integer", "minimum": 1},
+    "conflict_key": {"type": "string"},
+    "effect": {"type": "string"},
+    "deterministic_checks": {"type": "array", "items": {"type": "string"}},
+    "confirmed_by": {"type": ["string", "null"]},
+    "preference_owner": {"type": ["string", "null"]},
+    "attribution": {"type": "string", "enum": ["direct", "third_party", "ai_inference"]},
+    "communicative_intent": {"type": "string"},
+    "rule_candidate": {"type": "boolean"},
+    "valid_from": {"type": ["string", "null"], "format": "date-time"},
+    "valid_until": {"type": ["string", "null"], "format": "date-time"},
+    "sensitive": {"type": "boolean"},
+    "applicable_topics": {"type": "array", "items": {"type": "string"}},
+    "applicable_objectives": {"type": "array", "items": {"type": "string"}},
+    "prohibited_topics": {"type": "array", "items": {"type": "string"}},
+    "counter_example_rationale": {"type": "string"}
+  },
+  "additionalProperties": false
 }

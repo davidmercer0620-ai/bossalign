@@ -1,156 +1,388 @@
-import sys
+"""Command-line interface backed by the same SDK and engine as Python callers."""
+
 import argparse
-from .parser import parse_feedback_event
-from .boundary import BoundaryEngine
-from .sandbox import ShadowBossSandbox
+import json
+import os
+import sys
+import tempfile
+from dataclasses import asdict
+from pathlib import Path
+from typing import List, Optional
+
+from .export import ExportPolicy
+from .providers import provider_from_env
+from .replay import ReplayStep
 from .sanitizer import sanitize_deliverable
-from .schema import BoundaryRule
+from .schema import BoundaryRule, RuleStatus, TaskContext
+from .sdk import BossAlign
 
-# Try rich for pretty output, fallback to standard ANSI print
-try:
-    from rich.console import Console
-    from rich.table import Table
-    from rich.panel import Panel
-    console = Console()
-    HAS_RICH = True
-except ImportError:
-    HAS_RICH = False
 
-def print_banner(msg: str):
-    if HAS_RICH:
-        console.print(Panel.fit(f"[bold cyan]{msg}[/bold cyan]"))
-    else:
-        print(f"\n=== {msg} ===\n")
+def _rule_summary(rule: BoundaryRule):
+    return {
+        "rule_id": rule.rule_id,
+        "reviewer": rule.reviewer,
+        "preference_owner": rule.preference_owner,
+        "attribution": rule.attribution,
+        "directive": rule.directive,
+        "scope": rule.applicable_scope,
+        "negative_boundaries": rule.negative_boundaries,
+        "communicative_intent": rule.communicative_intent,
+        "valid_from": rule.valid_from,
+        "valid_until": rule.valid_until,
+        "sensitive": rule.sensitive,
+        "confidence": rule.confidence,
+        "origin": rule.origin,
+        "status": rule.status.value,
+        "version": rule.version,
+    }
 
-def print_success(msg: str):
-    if HAS_RICH:
-        console.print(f"[bold green]✔ {msg}[/bold green]")
-    else:
-        print(f"[SUCCESS] {msg}")
 
-def print_warning(msg: str):
-    if HAS_RICH:
-        console.print(f"[bold yellow]⚠ {msg}[/bold yellow]")
-    else:
-        print(f"[WARNING] {msg}")
+def _report_dict(report):
+    return {
+        "status": report.status,
+        "user_approved": report.user_approved,
+        "applicable_rules": [_rule_summary(rule) for rule in report.applicable_rules],
+        "active_reasons": [asdict(item) for item in report.active_reasons],
+        "violations": [asdict(item) for item in report.violations],
+        "excluded_rules": [asdict(item) for item in report.excluded_rules],
+        "uncertain_rules": [asdict(item) for item in report.uncertain_rules],
+        "conflicts": [asdict(item) for item in report.conflicts],
+        "notes": report.notes,
+    }
 
-def print_error(msg: str):
-    if HAS_RICH:
-        console.print(f"[bold red]❌ {msg}[/bold red]")
-    else:
-        print(f"[ERROR] {msg}")
 
-def cmd_ingest(args):
-    print_banner("正在启动 BossAlign 情绪脱水解析器...")
-    event, rule = parse_feedback_event(args.reviewer, args.raw, args.context)
-    
-    if HAS_RICH:
-        table = Table(title="反馈解析成果", show_header=True, header_style="bold magenta")
-        table.add_column("属性", style="dim", width=18)
-        table.add_column("解析内容")
-        table.add_row("事件编号", event.event_id)
-        table.add_row("审核人", event.reviewer)
-        table.add_row("原始录入", event.raw_content)
-        table.add_row("脱水后核心诉求", f"[bold green]{event.extracted_intent}[/bold green]")
-        table.add_row("反例边界警示", f"[bold yellow]{rule.counter_example_rationale}[/bold yellow]")
-        console.print(table)
-    else:
-        print(f"• 事件编号: {event.event_id}")
-        print(f"• 审核人: {event.reviewer}")
-        print(f"• 原始录入: {event.raw_content}")
-        print(f"• 脱水后核心诉求: {event.extracted_intent}")
-        print(f"• 反例边界警示: {rule.counter_example_rationale}")
-        
-    print_success("反馈事件与反例守卫规则已成功登记！")
-
-def cmd_check(args):
+def _parse_json_object(value: str, name: str):
     try:
-        with open(args.file, "r", encoding="utf-8") as f:
-            content = f.read()
-    except Exception as e:
-        print_error(f"读取文件失败: {e}")
-        return
-        
-    print_banner(f"正在启动针对 {args.reviewer} 的影子老板闭门沙箱...")
-    sandbox = ShadowBossSandbox(reviewer=args.reviewer)
-    res = sandbox.review_draft(content)
-    
-    if res["passed"]:
-        print_success("恭喜！影子老板沙箱全项通过，未发现致命雷区！")
-    else:
-        print_error(f"沙箱拦截！发现 {res['total_issues']} 个潜在挨骂点：")
-        for issue in res["issues"]:
-            print(f" • [{issue['severity']}] {issue['detail']}")
+        result = json.loads(value)
+    except json.JSONDecodeError as error:
+        raise ValueError("%s must be valid JSON: %s" % (name, error.msg)) from None
+    if not isinstance(result, dict):
+        raise ValueError("%s must be a JSON object" % name)
+    return result
 
-def cmd_sanitize(args):
+
+def _parse_json_array(value: str, name: str):
     try:
-        with open(args.file, "r", encoding="utf-8") as f:
-            content = f.read()
-    except Exception as e:
-        print_error(f"读取文件失败: {e}")
-        return
-        
+        result = json.loads(value)
+    except json.JSONDecodeError as error:
+        raise ValueError("%s must be valid JSON: %s" % (name, error.msg)) from None
+    if not isinstance(result, list):
+        raise ValueError("%s must be a JSON array" % name)
+    return result
+
+
+def _context(value: str) -> TaskContext:
+    return TaskContext.from_mapping(_parse_json_object(value, "task context"))
+
+
+def _new_client(database: str, use_provider: bool = False) -> BossAlign:
+    return BossAlign(database, provider=provider_from_env() if use_provider else None)
+
+
+def _cmd_ingest(args) -> int:
+    context = _parse_json_object(args.context_json, "context")
+    with _new_client(args.db, use_provider=True) as client:
+        try:
+            rule = client.ingest(
+                args.raw,
+                reviewer=args.reviewer,
+                context=context,
+                confirm=args.confirm,
+                source=args.source,
+                preference_owner=args.preference_owner,
+                attribution=args.attribution,
+                valid_from=args.valid_from,
+                valid_until=args.valid_until,
+                sensitive=args.sensitive,
+                consent_to_store_sensitive=args.consent_to_store_sensitive,
+                allow_external_processing=args.allow_external_processing,
+                retain_source_text=args.retain_source_text,
+                confirmed_by=args.confirmed_by,
+            )
+        except ValueError as error:
+            print("bossalign: %s" % error, file=sys.stderr)
+            return 2
+        print(json.dumps(_rule_summary(rule), ensure_ascii=False, indent=2))
+        if rule.status == RuleStatus.DRAFT:
+            if not rule.rule_candidate:
+                print("Stored as a non-rule feedback event. It cannot be confirmed or applied as a persistent rule.")
+            else:
+                print("Stored as draft. It will not be applied until reviewed and confirmed.")
+            if not rule.applicable_scope:
+                print("No structured scope was supplied; retrieval will remain uncertain.")
+        return 0
+
+
+def _cmd_rules(args) -> int:
+    with _new_client(args.db) as client:
+        if args.action == "delete":
+            if not args.rule_id:
+                print("rules delete requires --rule-id", file=sys.stderr)
+                return 2
+            if not client.delete_rule(args.rule_id):
+                print("bossalign: Unknown rule: %s" % args.rule_id, file=sys.stderr)
+                return 2
+            print(json.dumps({"rule_id": args.rule_id, "deleted": True}, ensure_ascii=False))
+            return 0
+        if args.action in ("confirm", "deactivate", "revoke", "reject", "supersede"):
+            if not args.rule_id:
+                print("rules %s requires --rule-id" % args.action, file=sys.stderr)
+                return 2
+            try:
+                if args.action == "confirm":
+                    rule = client.confirm_rule(args.rule_id, confirmed_by=args.confirmed_by)
+                elif args.action == "deactivate":
+                    rule = client.deactivate_rule(args.rule_id)
+                elif args.action == "reject":
+                    rule = client.reject_rule(args.rule_id, rejected_by=args.confirmed_by or "reviewer", reason=getattr(args, "reason", "") or "")
+                elif args.action == "supersede":
+                    if not getattr(args, "new_rule_id", None):
+                        print("rules supersede requires --new-rule-id", file=sys.stderr)
+                        return 2
+                    rule = client.supersede_rule(args.rule_id, args.new_rule_id, actor=args.confirmed_by or "system", reason=getattr(args, "reason", "") or "")
+                else:
+                    rule = client.revoke_rule(args.rule_id)
+            except (KeyError, ValueError) as error:
+                print("bossalign: %s" % error, file=sys.stderr)
+                return 2
+            print(json.dumps(_rule_summary(rule), ensure_ascii=False, indent=2))
+            return 0
+        if args.action == "update":
+            if not args.rule_id:
+                print("rules update requires --rule-id", file=sys.stderr)
+                return 2
+            changes = {}
+            if args.directive is not None:
+                changes["directive"] = args.directive
+            if args.scope_json is not None:
+                changes["applicable_scope"] = _parse_json_object(args.scope_json, "scope")
+            if args.negative_boundaries_json is not None:
+                changes["negative_boundaries"] = _parse_json_array(args.negative_boundaries_json, "negative boundaries")
+            if args.deterministic_checks_json is not None:
+                changes["deterministic_checks"] = _parse_json_array(args.deterministic_checks_json, "deterministic checks")
+            if args.confidence is not None:
+                changes["confidence"] = args.confidence
+            if args.conflict_key is not None:
+                changes["conflict_key"] = args.conflict_key
+            if args.effect is not None:
+                changes["effect"] = args.effect
+            if args.preference_owner is not None:
+                changes["preference_owner"] = args.preference_owner
+            if args.valid_from is not None:
+                changes["valid_from"] = args.valid_from
+            if args.valid_until is not None:
+                changes["valid_until"] = args.valid_until
+            if args.attribution is not None:
+                changes["attribution"] = args.attribution
+            if not changes:
+                print("rules update requires at least one field to change", file=sys.stderr)
+                return 2
+            try:
+                rule = client.update_rule(args.rule_id, **changes)
+            except (KeyError, ValueError) as error:
+                print("bossalign: %s" % error, file=sys.stderr)
+                return 2
+            print(json.dumps(_rule_summary(rule), ensure_ascii=False, indent=2))
+            return 0
+        rules = client.rules(
+            reviewer=args.reviewer,
+            project=args.project,
+            preference_owner=args.preference_owner,
+            include_inactive=args.all,
+        )
+        print(json.dumps([_rule_summary(rule) for rule in rules], ensure_ascii=False, indent=2))
+    return 0
+
+
+def _cmd_check(args) -> int:
+    context = _context(args.task_context)
+    content = Path(args.file).read_text(encoding="utf-8")
+    with _new_client(args.db, use_provider=True) as client:
+        report = client.check(context, content, reviewer=args.reviewer)
+    print(json.dumps(_report_dict(report), ensure_ascii=False, indent=2))
+    if report.status in ("violations_found", "review_required"):
+        return 1
+    if report.status == "uncertain":
+        return 2
+    return 0
+
+
+def _cmd_sanitize(args) -> int:
+    content = Path(args.file).read_text(encoding="utf-8")
     cleaned = sanitize_deliverable(content)
-    with open(args.out, "w", encoding="utf-8") as f:
-        f.write(cleaned)
-    print_success(f"净室清洗完成！已抹去所有内部标签，输出至: {args.out}")
+    Path(args.out).write_text(cleaned, encoding="utf-8")
+    print("Sanitized output written to %s" % args.out)
+    return 0
 
-def cmd_demo(args):
-    print_banner("🚀 正在演示 BossAlign (蛔虫引擎) 实战全流程...")
-    
-    raw = "这写的什么狗屁？！又是领军品牌、匠心智造，全片一股浓浓的 AI 味！我要看无人机在 7 级大风里的实测悬停！重新改！"
-    print(f"\n1. 领导发来夺命语音:\n\"{raw}\"")
-    
-    event, rule = parse_feedback_event("Boss_Victor", raw, "篇02_性能展示")
-    print(f"\n2. 情绪脱水完成: 提取意图: -> {event.extracted_intent}")
-    print(f"3. 反例边界确立: -> {rule.counter_example_rationale}")
-    
-    draft = "【镜头1】SkyPulse 天脉智航作为行业遥遥领先的领军品牌，倾注匠心智造...\n【镜头2】抗风测试：在7级风洞实测中，漂移公差控制在±3cm以内。"
-    print("\n4. 生成草稿 V2 并送入影子老板沙箱...")
-    sandbox = ShadowBossSandbox("Boss_Victor")
-    res = sandbox.review_draft(draft)
-    
-    print_warning(f"沙箱精准拦截: 发现禁忌词 -> {res['issues'][0]['detail']}")
-    
-    final_script = "【镜头1】风洞现场实景，7级狂风呼啸。\n【镜头2】特写仪表盘与螺旋桨：漂移公差控制在±3cm以内。\n【口播】不吹技术参数，只看极端天气下的悬停底气。"
-    print("\n5. 修复并二次过检：沙箱 100% 绿色通过！")
-    print("\n" + "="*50)
-    print(" 领导最终反馈：\"这版感觉完全对了！牛逼，我要的就是这种真实感！通过！\"")
-    print("="*50 + "\n")
 
-def main():
-    parser = argparse.ArgumentParser(description="BossAlign (蛔虫引擎) - 专治领导挑剔改稿的对齐框架")
-    subparsers = parser.add_subparsers(dest="command")
-    
-    # ingest
-    p_ingest = subparsers.add_parser("ingest", help="录入领导反馈并生成反例边界")
-    p_ingest.add_argument("--reviewer", default="Boss_Victor", help="审核人代号")
-    p_ingest.add_argument("--raw", required=True, help="未经处理的领导原话")
-    p_ingest.add_argument("--context", default="通用篇目", help="发生反馈的篇目")
-    p_ingest.set_defaults(func=cmd_ingest)
-    
-    # check
-    p_check = subparsers.add_parser("check", help="影子老板闭门沙箱检查")
-    p_check.add_argument("--file", required=True, help="待检测草稿文件路径")
-    p_check.add_argument("--reviewer", default="Boss_Victor", help="目标审核人")
-    p_check.set_defaults(func=cmd_check)
-    
-    # sanitize
-    p_san = subparsers.add_parser("sanitize", help="净室清洗交付")
-    p_san.add_argument("--file", required=True, help="待清洗草稿文件路径")
-    p_san.add_argument("--out", required=True, help="清洗后交付文件路径")
-    p_san.set_defaults(func=cmd_sanitize)
-    
-    # demo
-    p_demo = subparsers.add_parser("demo", help="30秒一键实战演示")
-    p_demo.set_defaults(func=cmd_demo)
-    
-    args = parser.parse_args()
-    if hasattr(args, "func"):
-        args.func(args)
-    else:
-        # Default to demo if no args provided
-        cmd_demo(args)
+def _cmd_demo(_args) -> int:
+    """Run a real local SDK flow on temporary synthetic data."""
+    with tempfile.TemporaryDirectory(prefix="bossalign-demo-") as directory:
+        database = str(Path(directory) / "demo.sqlite3")
+        with BossAlign(database) as client:
+            rule = client.ingest(
+                "Avoid the phrase 'guaranteed zero downtime' in consumer copy.",
+                reviewer="synthetic-reviewer",
+                context={
+                    "project": "demo-app",
+                    "task_type": "consumer_copy",
+                    "audience": "consumer",
+                    "applicable_scope": {"project": "demo-app", "audience": "consumer"},
+                    "negative_boundaries": [{"task_type": "technical_report"}],
+                    "deterministic_checks": ["guaranteed zero downtime"],
+                },
+                confirm=True,
+                source="synthetic_demo",
+            )
+            consumer = client.check(
+                TaskContext(project="demo-app", task_type="consumer_copy", audience="consumer"),
+                "This consumer copy says 'guaranteed zero downtime' without test evidence.",
+                reviewer="synthetic-reviewer",
+            )
+            technical = client.check(
+                TaskContext(project="demo-app", task_type="technical_report", audience="technical"),
+                "The technical report includes 'guaranteed zero downtime' as a test phrase.",
+                reviewer="synthetic-reviewer",
+            )
+
+    print("Synthetic local demo; no external model call and no real user approval.")
+    print("Rule: %s (%s, v%d)" % (rule.rule_id, rule.status.value, rule.version))
+    print("Consumer task status: %s" % consumer.status)
+    print("Technical report status: %s" % technical.status)
+    print("Consumer-task evidence: %s" % json.dumps([item.evidence for item in consumer.violations], ensure_ascii=False))
+    print("Technical task applicable rules: %d" % len(technical.applicable_rules))
+    print("user_approved: false")
+    return 0
+
+
+def _cmd_export(args) -> int:
+    with _new_client(args.db) as client:
+        if args.preview:
+            manifest = client.preview_export()
+            print(json.dumps(manifest.to_dict(), ensure_ascii=False, indent=2))
+            return 0
+        policy = ExportPolicy(allow_export=True)
+        bundle = client.export_rules(policy=policy)
+        result_json = json.dumps(bundle, ensure_ascii=False, indent=2)
+        if args.out:
+            Path(args.out).write_text(result_json, encoding="utf-8")
+            print("Exported %d rules to %s" % (bundle["count"], args.out))
+        else:
+            print(result_json)
+        return 0
+
+
+def _cmd_replay(args) -> int:
+    data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    steps = [
+        ReplayStep(
+            step_id=item["step_id"],
+            action=item["action"],
+            payload=item.get("payload", {}),
+            expected=item.get("expected"),
+        )
+        for item in data
+    ]
+    with _new_client(args.db) as client:
+        report = client.replay(steps)
+    print(report.summary)
+    for r in report.step_results:
+        status_str = "PASS" if r.passed else "FAIL"
+        print("  [%s] %s: %s" % (status_str, r.step_id, r.action))
+        for d in r.discrepancies:
+            print("    - %s" % d)
+    return 0 if report.passed else 1
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="bossalign",
+        description="Human feedback alignment for AI agents: scoped rules, persistent evidence, and explainable checks.",
+    )
+    parser.add_argument(
+        "--db",
+        default=os.environ.get("BOSSALIGN_DB", str(Path.home() / ".bossalign" / "memory.sqlite3")),
+        help="SQLite database path (default: BOSSALIGN_DB or ~/.bossalign/memory.sqlite3)",
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    ingest = commands.add_parser("ingest", help="Parse and persist a feedback proposal")
+    ingest.add_argument("--reviewer", default="default")
+    ingest.add_argument("--raw", required=True, help="Verbatim feedback text")
+    ingest.add_argument("--context-json", default="{}", help="Structured source context and proposed scope")
+    ingest.add_argument("--source", default="user_feedback")
+    ingest.add_argument("--attribution", choices=("direct", "third_party", "ai_inference"), default="direct")
+    ingest.add_argument("--preference-owner", help="Identity of the person whose preference this rule concerns")
+    ingest.add_argument("--valid-from", help="ISO-8601 start time for a temporary rule")
+    ingest.add_argument("--valid-until", help="ISO-8601 expiry time for a temporary rule")
+    ingest.add_argument("--sensitive", action="store_true", help="Apply local-first storage consent checks")
+    ingest.add_argument("--consent-to-store-sensitive", action="store_true", help="Explicitly allow storing a minimized sensitive rule")
+    ingest.add_argument("--allow-external-processing", action="store_true", help="Explicitly allow a configured remote provider to receive sensitive feedback")
+    ingest.add_argument("--retain-source-text", action="store_true", default=None, help="Retain source text; sensitive input is minimized by default")
+    ingest.add_argument("--confirm", action="store_true", help="Confirm the rule after parsing and confidence checks")
+    ingest.add_argument("--confirmed-by", help="Identity of the human confirming the proposed rule")
+    ingest.set_defaults(func=_cmd_ingest)
+
+    rules = commands.add_parser("rules", help="List, update, confirm, or deactivate rules")
+    rules.add_argument("action", nargs="?", choices=("list", "update", "confirm", "deactivate", "revoke", "reject", "supersede", "delete"), default="list")
+    rules.add_argument("--rule-id", help="Existing rule ID for update/confirm/deactivate")
+    rules.add_argument("--new-rule-id", help="Target rule ID for supersede")
+    rules.add_argument("--reason", help="Explanation or justification for reject/revoke/supersede")
+    rules.add_argument("--confirmed-by", help="Identity of the human confirming the proposed rule")
+    rules.add_argument("--reviewer")
+    rules.add_argument("--project")
+    rules.add_argument("--preference-owner")
+    rules.add_argument("--all", action="store_true", help="Include inactive rules")
+    rules.add_argument("--directive")
+    rules.add_argument("--scope-json")
+    rules.add_argument("--negative-boundaries-json")
+    rules.add_argument("--deterministic-checks-json")
+    rules.add_argument("--confidence", type=float)
+    rules.add_argument("--conflict-key")
+    rules.add_argument("--effect")
+    rules.add_argument("--valid-from")
+    rules.add_argument("--valid-until")
+    rules.add_argument("--attribution", choices=("direct", "third_party", "ai_inference"))
+    rules.set_defaults(func=_cmd_rules)
+
+    check = commands.add_parser("check", help="Retrieve applicable rules and check a generated output")
+    check.add_argument("--file", required=True, help="Text file containing the output to review")
+    check.add_argument(
+        "--task-context",
+        default="{}",
+        help="JSON task context: project, audience, task_type, objective, interaction_context, preference_owner, as_of, tags, current_overrides",
+    )
+    check.add_argument("--reviewer", help="Limit rule selection to this reviewer; omit to detect cross-reviewer conflicts")
+    check.set_defaults(func=_cmd_check)
+
+    demo = commands.add_parser("demo", help="Run a local synthetic feedback, retrieval, and review flow")
+    demo.set_defaults(func=_cmd_demo)
+
+    sanitize = commands.add_parser("sanitize", help="Remove BossAlign tags from a deliverable")
+    sanitize.add_argument("--file", required=True)
+    sanitize.add_argument("--out", required=True)
+    sanitize.set_defaults(func=_cmd_sanitize)
+
+    export_cmd = commands.add_parser("export", help="Safely export whitelisted rules")
+    export_cmd.add_argument("--preview", action="store_true", help="Preview sanitized export manifest")
+    export_cmd.add_argument("--out", help="Write export output to file")
+    export_cmd.set_defaults(func=_cmd_export)
+
+    replay_cmd = commands.add_parser("replay", help="Replay chronological feedback events")
+    replay_cmd.add_argument("--file", required=True, help="JSON file containing replay steps")
+    replay_cmd.set_defaults(func=_cmd_replay)
+    return parser
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return int(args.func(args))
+    except (OSError, ValueError, KeyError, RuntimeError) as error:
+        print("bossalign: %s" % error, file=sys.stderr)
+        return 2
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,58 +1,19 @@
-# Whitepaper 02: The Evidence Ladder — Preventing Hallucinated Stakeholder Profiles
+# 02: Evidence, Rule States, and Confirmation
 
-> **Author**: BossAlign Architecture Team  
-> **Core Premise**: Why do digital personas of executives hallucinate over time? How does hierarchical evidence management ensure verifiable preference modeling?
+BossAlign stores the original feedback event and records whether a rule came from an explicit user instruction, a user preference, AI inference, or an unverified hypothesis. Every parsed result starts as `draft`; a Provider cannot activate it by returning high confidence.
 
----
+| State | Meaning | Retrieved for tasks? |
+| --- | --- | --- |
+| `draft` | Parsed proposal awaiting review | No |
+| `confirmed` | Explicitly confirmed rule | Only when confidence and scope also match |
+| `inactive` | Disabled while history is retained | No |
 
-## 1. The Root Cause: Attribution Pollution
+Confirmation checks a default confidence threshold of `0.60` and records the confirmer in a new rule version. A low-confidence proposal should be corrected with `update_rule()` before confirmation. `update_rule()` and `deactivate_rule()` append snapshots; the original feedback event remains available.
 
-Without strict isolation, multi-turn AI interactions cause severe attribution drift:
+## Evidence fields
 
-1. **Manager says**: *"This section feels too dry."*
-2. **Colleague notes**: *"I think he wanted more personal storytelling."*
-3. **AI infers**: *"The boss loves sentimental emotional drama. Let's invent a story about an engineer crying in the lab at 3 AM."*
-4. **Permanent Persona Updated**: *[Reviewer Persona: Prefers sentimental storytelling]*
+Events preserve original text, source, reviewer, timestamp, and extracted intent. Rules reference event IDs and retain the source feedback, scope, negative boundaries, confidence, status, and version. Source provenance is separate from interpretation: a model can propose an interpretation but cannot stand in for user confirmation.
 
-In the next proposal review, the executive explodes over the forced melodrama.  
-This failure mode is termed **Attribution Pollution**.
+## Review states
 
----
-
-## 2. The Four-Tier Evidence Ladder
-
-`BossAlign` enforces a strict 4-tier hierarchy for every piece of learned knowledge:
-
-```text
-Level 1: Direct Verbatim Quote (Primary Direct Evidence)
-  └── Source: Audio transcripts with timestamps, direct redline markups, verbatim chat messages.
-  └── Authority: Highest decision weight; directly updates reviewer profile.
-
-Level 2: Factual Grounding (Empirical Grounding)
-  └── Source: Lab test logs, ERP inventory, factory machine tolerances signed by tech leads.
-  └── Authority: Dictates objective performance claims; overrides marketing rhetoric.
-
-Level 3: Transferred Notes (Secondary Transferred Evidence)
-  └── Source: "A colleague heard the VP say...", "The project manager's interpretation".
-  └── Authority: Tagged as [TRANSFERRED]; serves as exploratory hypothesis only.
-
-Level 4: AI Speculation (Model Hypotheses)
-  └── Source: LLM deductive conclusions derived from above signals.
-  └── Authority: Tagged as [HYPOTHESIS]; requires formal human verification before promotion.
-```
-
----
-
-## 3. Immutable Governance Invariants
-
-- **Zero-Promotion Rule**: Level 3 or 4 assumptions can **NEVER** be saved under `Author = "Boss_Victor"`.
-- **Audit State Machine**:
-  Draft statuses are explicitly tracked as:
-  - `DRAFT_INTERNAL`
-  - `PRE_FLIGHT_PASSED`
-  - `SUBMITTED_AWAITING`
-  - `PARTIALLY_ACCEPTED`
-  - `APPROVED`
-
-*"AI pre-flight check passed"* does NOT equal *"Approved by stakeholder"*.  
-*"Stakeholder voiced no objections"* does NOT equal *"Permanent blanket approval"*.
+Deterministic checks scan only exact phrases explicitly configured on a rule. Model findings are marked `llm_inference`. In either mode, `user_approved` remains `false`. A system check with no findings does not mean a human reviewer approved the output.

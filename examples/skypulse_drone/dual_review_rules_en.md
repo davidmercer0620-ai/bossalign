@@ -1,6 +1,6 @@
 # SkyPulse Robotics: Dual-Stakeholder Principles & Negative Boundaries (Mock Case)
 
-> Synthetic showcase demonstrating how BossAlign decouples and orthogonalizes preferences between multiple senior stakeholders.
+> Fully fictional synthetic example. It contains no real company, person, or user feedback; it only illustrates how multi-reviewer rules might be expressed.
 
 ---
 
