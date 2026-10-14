@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from bossalign import BossAlign, FeedbackEvent, MemoryStore
-from bossalign.schema import ContentType, EvidenceLevel, EvidenceType, FeedbackKind, RuleStatus
+from bossalign.schema import ContentType, EvidenceLevel, EvidenceType
 
 
 class TestEventStore(unittest.TestCase):

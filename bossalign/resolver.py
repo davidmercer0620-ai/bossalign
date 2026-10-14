@@ -1,16 +1,13 @@
 """Domain-agnostic conflict resolution engine for human feedback alignment."""
 
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
-from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence
 
 from .schema import (
     BoundaryRule,
     ConflictResolutionOption,
     ConflictType,
     RuleConflict,
-    RuleSelection,
     RuleStatus,
     TaskContext,
 )

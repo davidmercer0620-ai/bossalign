@@ -4,13 +4,13 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
-from .boundary import BoundaryEngine, MIN_ACTIVE_CONFIDENCE
+from .boundary import BoundaryEngine
 from .export import ExportManifest, ExportPolicy, PrivacyExporter
 from .lifecycle import PreferenceLifecycle
 from .parser import FeedbackParser
 from .providers import DeterministicProvider, FeedbackProvider
 from .replay import ReplayEngine, ReplayReport, ReplayStep
-from .retrieval import EvidenceItem, EvidenceQuery, EvidenceRetriever, InMemoryEvidenceRetriever, RetrievalResult
+from .retrieval import EvidenceRetriever, InMemoryEvidenceRetriever
 from .sandbox import RuleChecker
 from .schema import BoundaryRule, CheckReport, FeedbackEvent, RuleSelection, RuleStatus, TaskContext, utc_now
 from .store import MemoryStore

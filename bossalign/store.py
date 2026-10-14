@@ -1,8 +1,10 @@
 """SQLite persistence for feedback events, current rules, and rule history."""
 
+import datetime
 import json
 import sqlite3
 import threading
+import uuid
 from pathlib import Path
 from typing import List, Optional
 
@@ -117,7 +119,6 @@ class MemoryStore:
         # Record migration
         cur = self._connection.execute("SELECT 1 FROM schema_migrations WHERE version = 2")
         if cur.fetchone() is None:
-            import datetime
             now = datetime.datetime.now(datetime.timezone.utc).isoformat()
             self._connection.execute(
                 "INSERT INTO schema_migrations(version, applied_at, description) VALUES (?, ?, ?)",
@@ -161,7 +162,6 @@ class MemoryStore:
             event = self.get_event(event_id)
             if not event:
                 return False
-            import uuid, datetime
             event.status = "revoked"
             snapshot = self._json(event.to_dict())
             self._connection.execute(

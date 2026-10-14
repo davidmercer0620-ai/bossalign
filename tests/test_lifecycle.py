@@ -5,8 +5,7 @@ import unittest
 from pathlib import Path
 
 from bossalign import BossAlign, MemoryStore, TaskContext
-from bossalign.lifecycle import PreferenceLifecycle
-from bossalign.schema import BoundaryRule, RuleStatus
+from bossalign.schema import RuleStatus
 
 
 class TestLifecycle(unittest.TestCase):
@@ -98,6 +97,7 @@ class TestLifecycle(unittest.TestCase):
                 context={"applicable_scope": {"project": "proj_1"}},
                 confirm=True,
             )
+            self.assertIsNotNone(rule)
 
             # As of Jan 15, 2026: rule is active
             selection_valid = client.retrieve(TaskContext(project="proj_1", as_of="2026-01-15T12:00:00Z"))

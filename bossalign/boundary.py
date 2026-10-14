@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import List, Mapping, Optional, Sequence
 
 from .resolver import ConflictResolver
-from .schema import BoundaryRule, RuleConflict, RuleDecision, RuleSelection, RuleStatus, TaskContext
+from .schema import BoundaryRule, RuleDecision, RuleSelection, RuleStatus, TaskContext
 
 
 MIN_ACTIVE_CONFIDENCE = 0.6

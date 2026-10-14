@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bossalign import BossAlign, MemoryStore, TaskContext
+from bossalign import MemoryStore, TaskContext
 from bossalign.resolver import ConflictResolver
 from bossalign.schema import BoundaryRule, ConflictType, RuleStatus
 

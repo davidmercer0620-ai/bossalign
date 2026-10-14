@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bossalign import BossAlign, ExportPolicy, MemoryStore, PrivacyExporter
+from bossalign import ExportPolicy, MemoryStore, PrivacyExporter
 from bossalign.schema import BoundaryRule, RuleStatus
 
 

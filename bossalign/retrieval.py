@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .schema import EvidenceType
 
